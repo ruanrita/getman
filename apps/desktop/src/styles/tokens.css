@@ -1,0 +1,99 @@
+/*
+ * Getman design tokens. Base colour: light blue #5AB4F0.
+ * Every component uses these variables only, never raw colours.
+ * Documented in docs/architecture/design-system.md.
+ */
+:root,
+:root[data-theme="light"] {
+  --primary: #5ab4f0;
+  --primary-strong: #1e88e5;
+  --primary-soft: #e3f2fd;
+  --primary-contrast: #06263d;
+  --accent: #ff8a65;
+  --accent-soft: #ffe9e1;
+
+  --success: #2fb380;
+  --warning: #e0a526;
+  --danger: #e5546a;
+  --info: #8e6fd1;
+
+  --bg: #f6fafd;
+  --surface: #ffffff;
+  --surface-2: #eef5fb;
+  --border: #d6e4f0;
+  --text: #102a3c;
+  --text-muted: #5b7488;
+  --code-bg: #f1f6fb;
+  --shadow: 0 8px 28px rgb(16 42 60 / 0.14);
+
+  --method-get: #2fb380;
+  --method-post: #d99a1c;
+  --method-put: #1e88e5;
+  --method-patch: #8e6fd1;
+  --method-delete: #e5546a;
+  --method-other: #5b7488;
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #5ab4f0;
+    --primary-strong: #8fcdf7;
+    --primary-soft: #14324a;
+    --primary-contrast: #04182a;
+    --accent: #ff9c7d;
+    --accent-soft: #3a2119;
+    --success: #4cc994;
+    --warning: #f0b84a;
+    --danger: #f27286;
+    --info: #a98ee6;
+    --bg: #0b141c;
+    --surface: #111e29;
+    --surface-2: #172836;
+    --border: #22384a;
+    --text: #e3eef7;
+    --text-muted: #8aa3b8;
+    --code-bg: #0e1a24;
+    --shadow: 0 8px 28px rgb(0 0 0 / 0.5);
+    --method-get: #4cc994;
+    --method-post: #f0b84a;
+    --method-put: #5ab4f0;
+    --method-patch: #a98ee6;
+    --method-delete: #f27286;
+    --method-other: #8aa3b8;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary: #5ab4f0;
+  --primary-strong: #8fcdf7;
+  --primary-soft: #14324a;
+  --primary-contrast: #04182a;
+  --accent: #ff9c7d;
+  --accent-soft: #3a2119;
+  --success: #4cc994;
+  --warning: #f0b84a;
+  --danger: #f27286;
+  --info: #a98ee6;
+  --bg: #0b141c;
+  --surface: #111e29;
+  --surface-2: #172836;
+  --border: #22384a;
+  --text: #e3eef7;
+  --text-muted: #8aa3b8;
+  --code-bg: #0e1a24;
+  --shadow: 0 8px 28px rgb(0 0 0 / 0.5);
+  --method-get: #4cc994;
+  --method-post: #f0b84a;
+  --method-put: #5ab4f0;
+  --method-patch: #a98ee6;
+  --method-delete: #f27286;
+  --method-other: #8aa3b8;
+  color-scheme: dark;
+}
