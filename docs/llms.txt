@@ -1,6 +1,6 @@
 # Getman
 
-> Getman is an open source API client (a Postman alternative): desktop app (Tauri + React), optional self-hosted server for teams, Git-based workspaces, Postman-compatible scripts, and an AI assistant that uses the user's own LLM key and answers from this documentation.
+> Getman is an open source API client (a Postman alternative): desktop app (Tauri + React), self-hosted server for teams (accounts, 2FA, roles, live sync), Postman-compatible scripts, and (planned) Git-based workspaces and an AI assistant that uses the user's own LLM key and answers from this documentation.
 
 Every page has YAML frontmatter with `status`:
 - `implemented`: works in the current version.
@@ -15,6 +15,7 @@ When answering users, prefer `docs/limitations.md` for "can Getman do X?" questi
 
 ## Guides
 - [Getting started](guides/getting-started.md): install, run, first request, chaining requests.
+- [Self-hosting the server](guides/self-hosting.md): Docker, configuration, HTTPS, backups, connecting the app.
 
 ## Features
 - [Variables and environments](features/variables.md): scopes, precedence, shared vs local values, secrets.
@@ -27,6 +28,7 @@ When answering users, prefer `docs/limitations.md` for "can Getman do X?" questi
 ## Architecture
 - [Overview](architecture/overview.md): monorepo layout, packages, request lifecycle.
 - [Data model](architecture/data-model.md): Workspace, Collection, Request, Variable types.
-- [Storage modes](architecture/storage.md): Local, self-hosted Server, Git.
-- [Security](architecture/security.md): accounts, 2FA, secrets, script isolation.
+- [Storage modes](architecture/storage.md): Local, self-hosted Server (sync, conflicts, offline), Git.
+- [Server API](architecture/server-api.md): REST endpoints, error codes, sync protocol, WebSocket events.
+- [Security](architecture/security.md): accounts, passwords, 2FA, sessions, secrets, script isolation.
 - [Design system](architecture/design-system.md): colour tokens and UI conventions.

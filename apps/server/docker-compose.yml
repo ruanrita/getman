@@ -1,0 +1,35 @@
+# Self-hosted Getman server.
+#   docker compose up -d          -> server on :8787 + PostgreSQL
+#   docker compose up -d db       -> only the database (for `pnpm dev`)
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: getman
+      POSTGRES_PASSWORD: getman
+      POSTGRES_DB: getman
+    ports:
+      - "55432:5432"
+    volumes:
+      - getman-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U getman"]
+      interval: 2s
+      retries: 20
+
+  server:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    environment:
+      DATABASE_URL: postgres://getman:getman@db:5432/getman
+      GETMAN_ENCRYPTION_KEY: ${GETMAN_ENCRYPTION_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - "8787:8787"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  getman-db:

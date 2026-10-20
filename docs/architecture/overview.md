@@ -13,7 +13,7 @@ getman/
 │   ├── desktop/            Tauri 2 shell + React UI
 │   │   ├── src/            UI (components/, lib/, styles/)
 │   │   └── src-tauri/      Rust shell: window, native HTTP plugin
-│   └── server/             (planned) Fastify + PostgreSQL, multi-user sync
+│   └── server/             Fastify + PostgreSQL: accounts, 2FA, workspaces, sync, WebSocket
 ├── packages/
 │   ├── core/               Domain model, variables, permissions, request preparation. No I/O.
 │   ├── importers/          Postman, OpenAPI, cURL, Getman format. Pure functions.
@@ -42,8 +42,10 @@ Packages export TypeScript source directly (`"main": "src/index.ts"`); Vite and 
 
 `apps/desktop/src/lib/store.ts` is a single Zustand store persisted to IndexedDB (`idb-keyval`). Persisted: workspaces, active workspace, selection, theme. Not persisted: runtime variables, responses, running flags.
 
-When storage modes arrive, the store will talk to a `StorageAdapter` (local / server / git) instead of persisting directly; see [storage](storage.md).
+Server workspaces are cached in the same store; `lib/sync.ts` pushes local changes and applies remote ones (see [storage](storage.md)). `lib/api.ts` is the typed server client.
 
 ## Testing
 
-`pnpm test` runs Vitest over `packages/*/test`. The UI has no automated tests yet.
+- `pnpm test`: Vitest over `packages/*/test` (no services needed).
+- `pnpm test:server`: server integration tests against a real PostgreSQL (see [self-hosting](../guides/self-hosting.md#running-from-source)).
+- The UI has no automated tests in the repo yet.

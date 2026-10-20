@@ -10,9 +10,14 @@ tags: [limitations, faq, support]
 Keep this page current: when a limitation is fixed, delete its entry in the same change.
 
 ## Collaboration and accounts
-- **No multi-user yet.** Workspaces are local to one machine. Self-hosted server and Git modes are planned (see [storage](architecture/storage.md)). Workaround: export as Getman YAML and commit it to a repository.
-- **No accounts / 2FA yet.** They arrive with the self-hosted server.
-- **Roles are not enforced yet.** The permission rules exist and are tested but only matter once workspaces are shared.
+- **Git storage mode is not available yet.** Use the self-hosted server, or export as Getman YAML and commit it.
+- **Adding members needs an existing account.** There are no email invitations yet; ask the person to create an account on the server first.
+- **No password reset by email.** An admin with database access must reset it. No SSO/OIDC or passkeys yet.
+- **Simultaneous edits to the same collection:** the version saved first wins. The other person's last edit to that collection (up to ~1 second of typing) is replaced and they see a notice. Edits to different collections never conflict.
+- **Offline edits** to server workspaces are kept and pushed when the server is reachable again; if someone changed the same collection meanwhile, the rule above applies.
+- **Session tokens** are stored in the app's local storage, not yet in the OS keychain.
+- **One server instance only.** Live updates are delivered in-process; running replicas behind a load balancer would miss events.
+- **Signing out removes that server's workspaces from the device** (including local values typed for them).
 
 ## Requests
 - **No file uploads.** `form-data` fields are text only. Postman file fields are imported as text.

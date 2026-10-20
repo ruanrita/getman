@@ -14,7 +14,7 @@
       { "title": "Getman", "width": 1280, "height": 820, "minWidth": 900, "minHeight": 600 }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws: wss:"
     }
   },
   "bundle": {

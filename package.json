@@ -11,7 +11,9 @@
     "build": "pnpm --filter @getman/desktop build",
     "tauri": "pnpm --filter @getman/desktop tauri",
     "test": "vitest run",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "server": "pnpm --filter @getman/server dev",
+    "test:server": "pnpm --filter @getman/server test"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

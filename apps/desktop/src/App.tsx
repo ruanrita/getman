@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { findItemPath } from "@getman/core";
+import { AccountModal } from "./components/AccountModal";
 import { CollectionEditor } from "./components/CollectionEditor";
+import { NewWorkspaceModal } from "./components/NewWorkspaceModal";
+import { WorkspaceModal } from "./components/WorkspaceModal";
 import { EnvironmentsModal } from "./components/EnvironmentsModal";
 import { ExportModal } from "./components/ExportModal";
 import { ImportModal } from "./components/ImportModal";
@@ -8,6 +11,7 @@ import { RequestEditor } from "./components/RequestEditor";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar, type ModalName } from "./components/TopBar";
 import { useActiveWorkspace, useStore } from "./lib/store";
+import { startSync } from "./lib/sync";
 import { useToast } from "./lib/ui";
 
 export function App() {
@@ -22,6 +26,10 @@ export function App() {
     if (theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    if (hydrated) startSync();
+  }, [hydrated]);
 
   if (!hydrated) return null;
 
@@ -49,6 +57,9 @@ export function App() {
       {modal === "environments" && <EnvironmentsModal onClose={() => setModal(null)} />}
       {modal === "import" && <ImportModal onClose={() => setModal(null)} />}
       {modal === "export" && <ExportModal onClose={() => setModal(null)} />}
+      {modal === "account" && <AccountModal onClose={() => setModal(null)} />}
+      {modal === "workspace" && <WorkspaceModal onClose={() => setModal(null)} />}
+      {modal === "newWorkspace" && <NewWorkspaceModal onClose={() => setModal(null)} onConnect={() => setModal("account")} />}
       {toastMessage && <div className="toast" role="status">{toastMessage}</div>}
     </div>
   );

@@ -1,46 +1,50 @@
 ---
 title: Security
-summary: Secrets handling and script isolation (implemented); accounts, password hashing, 2FA, sessions and encryption at rest (planned).
-status: partial
-tags: [security, 2fa, totp, secrets, sandbox, authentication]
+summary: Accounts, password hashing, 2FA (TOTP + recovery codes), sessions, secrets handling, encryption at rest, script isolation, and what is still planned.
+status: implemented
+tags: [security, 2fa, totp, secrets, sandbox, authentication, sessions, passwords]
 ---
 
 # Security
 
-## Implemented
+## Accounts and passwords (server)
+- Email + password, minimum 10 characters. Emails are case-insensitive.
+- Passwords hashed with **argon2id** (`@node-rs/argon2`, OWASP baseline parameters).
+- Login does the same hashing work whether or not the email exists, so response time does not reveal accounts.
+- Login, register and 2FA endpoints are **rate limited** per IP (`AUTH_RATE_LIMIT`, default 10/min).
+- Changing the password signs out every other session.
 
-### Secrets
+## Two-factor authentication
+- **TOTP** (RFC 6238; SHA-1, 6 digits, 30 s; ±1 step tolerance). Works with any authenticator app.
+- Setup is two steps: `/me/2fa/setup` returns the secret and QR URL; 2FA is only active after `/me/2fa/enable` confirms a code.
+- **10 recovery codes** (`xxxx-xxxx-xxxx`, ~60 bits each), shown once, stored as SHA-256, each usable once.
+- Sign-in with 2FA: password → short-lived challenge (5 min, max 5 wrong codes) → code → session.
+- TOTP secrets are **encrypted at rest** with AES-256-GCM using `GETMAN_ENCRYPTION_KEY`.
+- Turning 2FA off requires the password **and** a current code.
+- Workspaces can **require 2FA** for all members.
+
+## Sessions
+- Opaque 256-bit random tokens; the database stores only their SHA-256.
+- Sliding expiry (`SESSION_TTL_DAYS`, default 30).
+- Users see their signed-in devices and can sign any of them out; revoking a session also closes its live connection.
+- The WebSocket authenticates with its first message, never with a token in the URL.
+
+## Secrets in workspaces
 - Secret variables are masked in the UI and kept only in the device-local value.
-- `sanitizeVariables` (core) strips local values and secret values; every exporter calls it, and every future sync/backup must call it too.
+- `sanitizeVariables` strips local values and secret values. Exporters call it, the desktop sync calls it before upload, **and the server calls it again** before storing, so even a buggy client cannot store secrets on the server.
 - Values set by scripts go to the local value, so runtime tokens are never shared.
 
-### Script isolation
-See [scripts → sandbox](../features/scripts.md#sandbox-and-security): fresh Worker per run, 10s timeout, storage APIs removed.
+## Access control
+- Non-members get **404** for a workspace (ids cannot be probed).
+- Role checks on every endpoint; see [roles](../features/roles.md). Audit log of membership and settings changes.
 
-### Dev proxy
-`pnpm dev` exposes `/__getman/proxy` on localhost only. It requires the `X-Getman-Proxy: 1` header (forces a CORS preflight) and rejects foreign `Origin`s, so other websites can't use it. It does not exist in the desktop build.
+## Desktop app
+- Tauri CSP limits the webview to its own origin plus WebSocket connections; outgoing HTTP goes through the HTTP plugin.
+- Scripts run in a fresh Web Worker with a 10 s timeout and no storage access ([scripts](../features/scripts.md#sandbox-and-security)).
+- `pnpm dev` exposes a localhost-only dev proxy protected by a custom header and an Origin check; it does not exist in the desktop build.
 
-### Desktop
-Tauri CSP limits the webview to its own origin; outgoing HTTP goes through the HTTP plugin (scoped to http/https in `src-tauri/capabilities/default.json`).
-
-## Planned (phase 2: server)
-
-### Accounts
-- Email + password; password hashed with **argon2id**.
-- Email verification and password reset via signed, single-use, 30-minute tokens.
-- Optional OIDC/SSO login for companies (later).
-
-### Two-factor authentication
-- **TOTP** (RFC 6238, any authenticator app), enabled from account settings by scanning a QR code and confirming one code.
-- 10 single-use **recovery codes**, shown once, stored hashed.
-- Workspaces can **require 2FA** for all members (owner/admin setting).
-- WebAuthn/passkeys as a second factor later.
-
-### Sessions
-- Desktop app gets a refresh token stored in the **OS keychain** and a short-lived access token.
-- Users can list and revoke sessions; password change revokes all others.
-- Rate limiting and lockout on login and 2FA attempts.
-
-### Data at rest
-- Workspace-level secrets (AI keys, backup credentials) are encrypted with AES-256-GCM using a key from the server environment (`GETMAN_ENCRYPTION_KEY`).
-- Audit log for membership, role, backup and settings changes.
+## Planned
+- Session tokens in the **OS keychain** (today: app storage).
+- Email verification, password reset and email invitations (needs SMTP).
+- OIDC/SSO login, WebAuthn/passkeys as second factor.
+- Encryption at rest for workspace-level AI keys and backup credentials (same key as 2FA secrets).

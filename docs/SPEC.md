@@ -40,9 +40,10 @@ An open source API client that teams can **own**: run it locally, on their own s
 | 5 | Pre-request and test scripts, Postman `pm.*` compatible, isolated | ✅ implemented | [scripts](features/scripts.md) |
 | 6 | Import: Postman collection v2.0/v2.1, Postman environment, OpenAPI 3, Swagger 2, cURL, Getman | ✅ implemented | [import/export](features/import-export.md) |
 | 7 | Export: Postman v2.1, Getman YAML/JSON, cURL snippet | ✅ implemented | [import/export](features/import-export.md) |
-| 8 | Roles (owner/admin/editor/viewer) and ownership transfer: rules in `packages/core` | 🟡 partial (rules only; enforced once the server exists) | [roles](features/roles.md) |
-| 9 | Self-hosted server, multi-user workspaces, real-time sync | 📋 planned (phase 2) | [storage](architecture/storage.md) |
-| 10 | Accounts, 2FA (TOTP + recovery codes), sessions | 📋 planned (phase 2) | [security](architecture/security.md) |
+| 8 | Roles (owner/admin/editor/viewer), ownership transfer, leave workspace | ✅ implemented (server workspaces) | [roles](features/roles.md) |
+| 9 | Self-hosted server, multi-user workspaces, real-time sync, audit log | ✅ implemented | [self-hosting](guides/self-hosting.md), [storage](architecture/storage.md), [API](architecture/server-api.md) |
+| 10 | Accounts, 2FA (TOTP + recovery codes), sessions, "require 2FA" per workspace | ✅ implemented | [security](architecture/security.md) |
+| 10b | Email invitations, password reset by email, SSO/OIDC, passkeys | 📋 planned | [security](architecture/security.md) |
 | 11 | Git storage mode (GitHub, GitLab, Bitbucket, any remote) | 📋 planned (phase 3) | [storage](architecture/storage.md) |
 | 12 | Backup to S3-compatible, local folder, another database | 📋 planned (phase 2) | [backup](features/backup.md) |
 | 13 | AI assistant (BYOK, per account or per workspace) | 📋 planned (phase 2) | [AI assistant](features/ai-assistant.md) |
@@ -52,15 +53,19 @@ An open source API client that teams can **own**: run it locally, on their own s
 
 ## Phases
 
-**Phase 1: local app (current).** Everything marked implemented above. Data lives in the app (IndexedDB inside the webview).
+**Phase 1: local app. ✅ Done.** Data lives in the app (IndexedDB inside the webview).
 
-**Phase 2: team server.**
-- `apps/server`: Fastify + PostgreSQL, REST + WebSocket sync.
+**Phase 2a/2b: team server. ✅ Done.**
+- `apps/server`: Fastify + PostgreSQL, REST + WebSocket sync, Docker image.
 - Accounts, email + password (argon2id), TOTP 2FA, recovery codes, session management.
-- Workspace membership and role enforcement on every endpoint (rules from `packages/core/src/permissions.ts`).
-- Invites, ownership transfer, audit log.
+- Role enforcement on every endpoint (rules from `packages/core/src/permissions.ts`), ownership transfer, audit log.
+- Desktop: sign-in with 2FA, shared workspaces, members screen, publish a local workspace to a server.
+
+**Phase 2c: next.**
 - Backups (S3, local, database), scheduled and on demand.
 - AI assistant with BYOK keys.
+- Email invitations and password reset (needs SMTP settings).
+- Session tokens in the OS keychain.
 
 **Phase 3: Git and automation.**
 - Git storage mode, one YAML file per request for clean diffs.
