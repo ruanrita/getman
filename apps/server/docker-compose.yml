@@ -31,5 +31,17 @@ services:
       db:
         condition: service_healthy
 
+  # Optional S3-compatible storage (SeaweedFS) for backup development and tests:
+  #   docker compose --profile s3 up -d s3      -> http://localhost:58333 (any access key accepted)
+  s3:
+    image: chrislusf/seaweedfs:latest
+    profiles: ["s3"]
+    command: server -dir=/data -s3 -s3.port=8333 -master.volumeSizeLimitMB=64
+    ports:
+      - "58333:8333"
+    volumes:
+      - getman-s3:/data
+
 volumes:
   getman-db:
+  getman-s3:

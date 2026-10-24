@@ -1,6 +1,6 @@
 # Getman
 
-> Getman is an open source API client (a Postman alternative): desktop app (Tauri + React), self-hosted server for teams (accounts, 2FA, roles, live sync), Postman-compatible scripts, and (planned) Git-based workspaces and an AI assistant that uses the user's own LLM key and answers from this documentation.
+> Getman is an open source API client (a Postman alternative): desktop app (Tauri + React), self-hosted server for teams (accounts, 2FA, roles, live sync), Postman-compatible scripts, encrypted backups, an AI assistant that uses the user's own LLM key and answers from this documentation, and (planned) Git-based workspaces.
 
 Every page has YAML frontmatter with `status`:
 - `implemented`: works in the current version.
@@ -22,8 +22,8 @@ When answering users, prefer `docs/limitations.md` for "can Getman do X?" questi
 - [Scripts (pm API)](features/scripts.md): pre-request and test scripts, full pm.* reference, sandbox.
 - [Import and export](features/import-export.md): Postman, OpenAPI, cURL, Getman YAML; field mapping.
 - [Roles and permissions](features/roles.md): owner/admin/editor/viewer matrix.
-- [Backup](features/backup.md): S3, local folder, database targets.
-- [AI assistant](features/ai-assistant.md): bring-your-own-key chat that answers from these docs.
+- [Backup and restore](features/backup.md): encrypted, scheduled backups to S3 / server folder / PostgreSQL; restore.
+- [AI assistant](features/ai-assistant.md): chat that answers from these docs with your own key (Anthropic, OpenAI, Gemini, Ollama…) or a workspace key.
 
 ## Architecture
 - [Overview](architecture/overview.md): monorepo layout, packages, request lifecycle.

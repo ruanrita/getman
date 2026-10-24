@@ -43,6 +43,44 @@ export interface WorkspaceSnapshot {
   environments: { environment: Environment; version: number }[];
 }
 
+export type BackupSchedule = "manual" | "hourly" | "daily" | "weekly";
+
+export type NewBackupTarget =
+  | { kind: "s3"; config: { endpoint?: string; region?: string; bucket: string; prefix?: string; forcePathStyle?: boolean }; secrets: { accessKeyId: string; secretAccessKey: string } }
+  | { kind: "local"; config: { folder: string }; secrets: Record<string, never> }
+  | { kind: "postgres"; config: { table?: string }; secrets: { connectionString: string } };
+
+export interface BackupTarget {
+  id: string;
+  name: string;
+  kind: NewBackupTarget["kind"];
+  config: Record<string, unknown>;
+  schedule: BackupSchedule;
+  retention: number;
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastStatus: "ok" | "error" | null;
+  lastError: string | null;
+}
+
+export interface BackupRun {
+  id: string;
+  targetId: string;
+  status: "running" | "ok" | "error";
+  trigger: "manual" | "schedule";
+  objectKey: string | null;
+  sizeBytes: number | null;
+  error: string | null;
+  startedAt: string;
+}
+
+export interface RestoreResult {
+  id: string;
+  name: string;
+  collections: number;
+  environments: number;
+}
+
 export type LoginResult = { token: string; user: ServerUser } | { mfaRequired: true; mfaToken: string };
 
 export function normalizeServerUrl(url: string): string {
@@ -128,6 +166,36 @@ export class ServerApi {
   deleteEnvironment = (id: string, eid: string) => this.request("DELETE", `/workspaces/${id}/environments/${eid}`);
   putGlobals = (id: string, variables: Variable[], baseVersion: number) =>
     this.request<{ version: number }>("PUT", `/workspaces/${id}/globals`, { variables, baseVersion });
+
+  /* backups */
+  backups = (id: string) => this.request<{ targets: BackupTarget[]; runs: BackupRun[]; localBackupsEnabled: boolean }>("GET", `/workspaces/${id}/backup-targets`);
+  testBackupTarget = (id: string, body: NewBackupTarget) => this.request("POST", `/workspaces/${id}/backup-targets/test`, body);
+  createBackupTarget = (id: string, body: NewBackupTarget & { name: string; schedule: BackupSchedule; retention: number; passphrase: string }) =>
+    this.request<{ target: BackupTarget }>("POST", `/workspaces/${id}/backup-targets`, body);
+  updateBackupTarget = (id: string, tid: string, body: Partial<Pick<BackupTarget, "name" | "schedule" | "retention" | "enabled">>) =>
+    this.request<{ target: BackupTarget }>("PATCH", `/workspaces/${id}/backup-targets/${tid}`, body);
+  deleteBackupTarget = (id: string, tid: string) => this.request("DELETE", `/workspaces/${id}/backup-targets/${tid}`);
+  runBackup = (id: string, tid: string) => this.request<{ run: BackupRun }>("POST", `/workspaces/${id}/backup-targets/${tid}/run`);
+  restoreRun = (id: string, rid: string, body: { name?: string; restoreMembers: boolean }) =>
+    this.request<RestoreResult>("POST", `/workspaces/${id}/backup-runs/${rid}/restore`, body);
+  restoreFile = (body: { file: string; passphrase: string; name?: string; restoreMembers: boolean }) => this.request<RestoreResult>("POST", "/restore", body);
+
+  async downloadBackup(id: string, rid: string): Promise<Uint8Array> {
+    const doFetch = isTauri() ? (await import("@tauri-apps/plugin-http")).fetch : fetch;
+    const res = await doFetch(`${this.url}/workspaces/${id}/backup-runs/${rid}/download`, { headers: { Authorization: `Bearer ${this.token}` } });
+    if (!res.ok) throw new ApiError(res.status, "download_failed", `Download failed (HTTP ${res.status})`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  /* workspace AI */
+  workspaceAi = (id: string) =>
+    this.request<{ enabled: boolean; provider?: "anthropic" | "openai-compatible"; baseUrl?: string; model?: string; hasKey: boolean }>("GET", `/workspaces/${id}/ai`);
+  configureWorkspaceAi = (id: string, body: { provider: "anthropic" | "openai-compatible" | null; baseUrl?: string | null; model?: string | null; apiKey?: string | null }) =>
+    this.request("PUT", `/workspaces/${id}/ai`, body);
+  workspaceAiChat = (id: string, body: { system: string; messages: { role: "user" | "assistant"; content: string }[] }) =>
+    this.request<{ text: string; stopReason: string | null; model: string }>("POST", `/workspaces/${id}/ai/chat`, body);
+  workspaceAiUsage = (id: string) =>
+    this.request<{ usage: { email: string; requests: number; inputTokens: number; outputTokens: number }[] }>("GET", `/workspaces/${id}/ai/usage`);
 
   wsUrl(): string {
     return `${this.url.replace(/^http/i, "ws")}/ws`;

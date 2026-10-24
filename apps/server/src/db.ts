@@ -101,6 +101,62 @@ const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       create index on audit_log (workspace_id, id desc);
     `,
   },
+  {
+    id: 2,
+    name: "backups_and_ai",
+    sql: `
+      create table backup_targets (
+        id uuid primary key default gen_random_uuid(),
+        workspace_id uuid not null references workspaces on delete cascade,
+        name text not null,
+        kind text not null check (kind in ('s3', 'local', 'postgres')),
+        config jsonb not null default '{}',     -- non-secret settings, returned to clients
+        secrets_enc text,                       -- AES-256-GCM JSON (access keys, connection strings)
+        passphrase_enc text not null,           -- encrypts backup files; needed for scheduled runs
+        schedule text not null default 'daily' check (schedule in ('manual', 'hourly', 'daily', 'weekly')),
+        retention int not null default 14 check (retention between 1 and 1000),
+        enabled boolean not null default true,
+        last_run_at timestamptz,
+        last_status text,
+        last_error text,
+        created_by uuid references users on delete set null,
+        created_at timestamptz not null default now()
+      );
+      create index on backup_targets (workspace_id);
+
+      create table backup_runs (
+        id uuid primary key default gen_random_uuid(),
+        target_id uuid not null references backup_targets on delete cascade,
+        workspace_id uuid not null references workspaces on delete cascade,
+        status text not null check (status in ('running', 'ok', 'error')),
+        trigger text not null check (trigger in ('manual', 'schedule')),
+        object_key text,
+        size_bytes int,
+        error text,
+        started_at timestamptz not null default now(),
+        finished_at timestamptz
+      );
+      create index on backup_runs (target_id, started_at desc);
+
+      alter table workspaces
+        add column ai_provider text,            -- 'anthropic' | 'openai-compatible'
+        add column ai_base_url text,
+        add column ai_model text,
+        add column ai_key_enc text;
+
+      create table ai_usage (
+        id bigserial primary key,
+        workspace_id uuid not null references workspaces on delete cascade,
+        user_id uuid references users on delete set null,
+        provider text not null,
+        model text not null,
+        input_tokens int,
+        output_tokens int,
+        created_at timestamptz not null default now()
+      );
+      create index on ai_usage (workspace_id, created_at desc);
+    `,
+  },
 ];
 
 export function connect(url: string): Sql {

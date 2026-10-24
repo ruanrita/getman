@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { findItemPath } from "@getman/core";
 import { AccountModal } from "./components/AccountModal";
+import { AiPanel } from "./components/AiPanel";
 import { CollectionEditor } from "./components/CollectionEditor";
 import { NewWorkspaceModal } from "./components/NewWorkspaceModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
@@ -20,6 +21,7 @@ export function App() {
   const selection = useStore((s) => s.selection);
   const ws = useActiveWorkspace();
   const toastMessage = useToast((s) => s.message);
+  const aiOpen = useStore((s) => s.aiOpen);
   const [modal, setModal] = useState<ModalName | null>(null);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function App() {
   const item = collection && selection?.itemId ? findItemPath(collection, selection.itemId)?.item : undefined;
 
   return (
-    <div className="app">
+    <div className={`app ${aiOpen ? "ai-open" : ""}`}>
       <TopBar open={setModal} />
       <Sidebar />
       <main className="main">
@@ -53,6 +55,7 @@ export function App() {
           </div>
         )}
       </main>
+      {aiOpen && <AiPanel />}
 
       {modal === "environments" && <EnvironmentsModal onClose={() => setModal(null)} />}
       {modal === "import" && <ImportModal onClose={() => setModal(null)} />}

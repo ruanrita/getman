@@ -8,7 +8,9 @@ import type { Config } from "./config";
 import type { Sql } from "./db";
 import { HttpError } from "./errors";
 import { Hub } from "./realtime";
+import { aiRoutes } from "./routes/ai";
 import { authRoutes } from "./routes/auth";
+import { backupRoutes } from "./routes/backups";
 import { workspaceRoutes } from "./routes/workspaces";
 
 export const API_VERSION = 1;
@@ -56,6 +58,8 @@ export async function buildApp(sql: Sql, config: Config, opts: { logger?: boolea
 
   authRoutes(app, sql, config, hub);
   const { access } = workspaceRoutes(app, sql, config, hub);
+  backupRoutes(app, sql, config, access);
+  aiRoutes(app, sql, config, access);
 
   /**
    * Realtime: the client authenticates with its first message instead of a

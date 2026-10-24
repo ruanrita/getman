@@ -4,7 +4,9 @@ import { ApiError, type ServerApi } from "../lib/api";
 import { useActiveWorkspace, useStore } from "../lib/store";
 import { apiFor, loadServerWorkspace, publishWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
+import { BackupsTab } from "./BackupsTab";
 import { Modal } from "./Modal";
+import { WorkspaceAiTab } from "./WorkspaceAiTab";
 
 const ROLE_HELP: Record<Role, string> = {
   owner: "Everything, including deleting the workspace",
@@ -21,7 +23,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
   const meta = useStore((s) => s.remote[ws.id]);
   const servers = useStore((s) => s.servers).filter((a) => a.token);
   const { renameWorkspace, removeWorkspace } = useStore.getState();
-  const [tab, setTab] = useState<"general" | "members" | "audit">("general");
+  const [tab, setTab] = useState<"general" | "members" | "backups" | "ai" | "audit">("general");
   const isServer = ws.storage.kind === "server";
   const role = meta?.role ?? "owner";
 
@@ -29,11 +31,14 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
     <Modal title={`Workspace · ${ws.name}`} onClose={onClose}>
       {isServer && (
         <nav className="tabs" style={{ margin: "-16px -16px 16px" }}>
-          {(["general", "members", "audit"] as const)
-            .filter((t) => t !== "audit" || can(role, "members.manage"))
+          {(["general", "members", "backups", "ai", "audit"] as const)
+            .filter(
+              (t) =>
+                (t !== "audit" || can(role, "members.manage")) && (t !== "backups" || can(role, "backup.manage")) && (t !== "ai" || can(role, "ai.configure")),
+            )
             .map((t) => (
               <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-                {t === "general" ? "General" : t === "members" ? `Members (${meta?.members.length ?? 0})` : "Audit log"}
+                {{ general: "General", members: `Members (${meta?.members.length ?? 0})`, backups: "Backups", ai: "AI assistant", audit: "Audit log" }[t]}
               </button>
             ))}
         </nav>
@@ -96,6 +101,8 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
       )}
 
       {tab === "members" && isServer && <Members wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
+      {tab === "backups" && isServer && <BackupsTab wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
+      {tab === "ai" && isServer && <WorkspaceAiTab wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
       {tab === "audit" && isServer && <Audit wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
     </Modal>
   );

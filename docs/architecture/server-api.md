@@ -78,6 +78,32 @@ Send `Authorization: Bearer <token>`. Tokens are opaque random strings returned 
 
 **Sanitizing.** The server strips `localValue` and blanks secret values (`sanitizeVariables`) before storing, even if a client sends them.
 
+### Backups (`backup.manage`)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/workspaces/:id/backup-targets` | `{ targets, runs (50 newest), localBackupsEnabled }`; never includes credentials |
+| POST | `/workspaces/:id/backup-targets/test` | `{ kind, config, secrets }` → write/read/delete probe |
+| POST | `/workspaces/:id/backup-targets` | `+ { name, schedule, retention, passphrase (≥12) }`; tested before saving |
+| PATCH / DELETE | `/workspaces/:id/backup-targets/:tid` | PATCH `{ name?, schedule?, retention?, enabled? }` |
+| POST | `/workspaces/:id/backup-targets/:tid/run` | runs now → `{ run }` |
+| GET | `/workspaces/:id/backup-runs/:rid/download` | encrypted `.getman-backup` bytes |
+| POST | `/workspaces/:id/backup-runs/:rid/restore` | `{ name?, restoreMembers }` → new workspace |
+| POST | `/restore` | any user: `{ file (base64), passphrase, name?, restoreMembers }` → new workspace |
+
+`kind`: `s3` (`config: { endpoint?, region, bucket, prefix, forcePathStyle }`, `secrets: { accessKeyId, secretAccessKey }`), `local` (`config: { folder }`), `postgres` (`config: { table? }`, `secrets: { connectionString }`). `schedule`: `manual | hourly | daily | weekly`.
+
+Error codes: `target_unreachable`, `private_network`, `host_unresolvable`, `local_backups_disabled`, `backup_running`, `wrong_passphrase`, `invalid_backup`.
+
+### Workspace AI
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/workspaces/:id/ai` | `workspace.read` → `{ enabled, provider, baseUrl, model, hasKey }` (never the key) |
+| PUT | `/workspaces/:id/ai` | `ai.configure`: `{ provider: "anthropic" \| "openai-compatible" \| null, baseUrl?, model?, apiKey? }`; omit `apiKey` to keep it, `null` to delete |
+| POST | `/workspaces/:id/ai/chat` | `workspace.read`: `{ system, messages: [{ role, content }] }` → `{ text, stopReason, model }`; 30/min |
+| GET | `/workspaces/:id/ai/usage` | `ai.configure`: per-member requests and tokens, last 30 days |
+
+Error codes: `ai_not_configured`, `ai_auth_failed`, `ai_rate_limited`, `ai_provider_error`.
+
 ## Realtime (`GET /ws`, WebSocket)
 
 ```

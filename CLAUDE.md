@@ -11,8 +11,8 @@ Open source API client. Read `docs/llms.txt` first; it indexes all documentation
 - `packages/core`: model, variables, permissions, request prep. Pure, no I/O.
 - `packages/importers`: format converters. Pure.
 - `packages/scripts`: pm.* engine + worker.
-- `apps/server`: Fastify + Postgres. Routes in `src/routes`, migrations inline in `src/db.ts` (append only).
-- `apps/desktop`: Tauri + React UI. State in `src/lib/store.ts`, request lifecycle in `src/lib/runRequest.ts`, server sync in `src/lib/sync.ts`.
+- `apps/server`: Fastify + Postgres. Routes in `src/routes`, backups in `src/backup`, AI proxy in `src/ai`, migrations inline in `src/db.ts` (append only). Outbound URLs from user settings go through `assertReachableUrl` (SSRF).
+- `apps/desktop`: Tauri + React UI. State in `src/lib/store.ts`, request lifecycle in `src/lib/runRequest.ts`, server sync in `src/lib/sync.ts`, AI assistant in `src/lib/ai.ts` (docs are bundled into its system prompt).
 
 ## Rules
 1. **Docs are mandatory.** Any change to behaviour updates, in the same change:

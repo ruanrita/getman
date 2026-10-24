@@ -45,8 +45,8 @@ An open source API client that teams can **own**: run it locally, on their own s
 | 10 | Accounts, 2FA (TOTP + recovery codes), sessions, "require 2FA" per workspace | ✅ implemented | [security](architecture/security.md) |
 | 10b | Email invitations, password reset by email, SSO/OIDC, passkeys | 📋 planned | [security](architecture/security.md) |
 | 11 | Git storage mode (GitHub, GitLab, Bitbucket, any remote) | 📋 planned (phase 3) | [storage](architecture/storage.md) |
-| 12 | Backup to S3-compatible, local folder, another database | 📋 planned (phase 2) | [backup](features/backup.md) |
-| 13 | AI assistant (BYOK, per account or per workspace) | 📋 planned (phase 2) | [AI assistant](features/ai-assistant.md) |
+| 12 | Encrypted, scheduled backups to S3-compatible, server folder or another PostgreSQL; restore | ✅ implemented (server workspaces) | [backup](features/backup.md) |
+| 13 | AI assistant (BYOK per user, or shared per workspace) answering from the docs | ✅ implemented | [AI assistant](features/ai-assistant.md) |
 | 14 | More import formats: Insomnia, HAR, Bruno, Thunder Client | 📋 planned | [import/export](features/import-export.md) |
 | 15 | Collection runner + `getman` CLI for CI | 📋 planned (phase 3) | - |
 | 16 | Code generation beyond cURL (fetch, axios, Python, PHP, Go) | 📋 planned | - |
@@ -61,11 +61,14 @@ An open source API client that teams can **own**: run it locally, on their own s
 - Role enforcement on every endpoint (rules from `packages/core/src/permissions.ts`), ownership transfer, audit log.
 - Desktop: sign-in with 2FA, shared workspaces, members screen, publish a local workspace to a server.
 
-**Phase 2c: next.**
-- Backups (S3, local, database), scheduled and on demand.
-- AI assistant with BYOK keys.
+**Phase 2c: backups and AI. ✅ Done.**
+- Encrypted backups (S3-compatible, server folder, PostgreSQL), schedules, retention, restore into a new workspace.
+- AI assistant: Anthropic via the official SDK, OpenAI-compatible providers (OpenAI, Gemini, OpenRouter, Ollama…), per-user keys or a workspace key proxied by the server.
+
+**Next.**
 - Email invitations and password reset (needs SMTP settings).
-- Session tokens in the OS keychain.
+- Session tokens and AI keys in the OS keychain.
+- Git storage mode, collection runner and CLI (phase 3).
 
 **Phase 3: Git and automation.**
 - Git storage mode, one YAML file per request for clean diffs.

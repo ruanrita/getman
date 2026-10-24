@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@getman/core": "workspace:*",
     "@getman/importers": "workspace:*",
     "@getman/scripts": "workspace:*",

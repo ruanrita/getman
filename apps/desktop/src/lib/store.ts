@@ -20,6 +20,7 @@ import {
 } from "@getman/core";
 import type { ImportResult } from "@getman/importers";
 import type { LogEntry, TestResult, VariableChange } from "@getman/scripts";
+import { DEFAULT_AI_SETTINGS, type AiSettings } from "./aiConfig";
 import type { ServerMember, ServerUser } from "./api";
 import { LOCAL_USER, seedWorkspace } from "./seed";
 import { toast } from "./ui";
@@ -69,6 +70,8 @@ interface State {
   hydrated: boolean;
   servers: ServerAccount[];
   remote: Record<string, RemoteMeta>;
+  ai: AiSettings;
+  aiOpen: boolean;
 }
 
 interface Actions {
@@ -98,6 +101,8 @@ interface Actions {
   putWorkspace(ws: Workspace): void;
   removeWorkspace(id: string): void;
   setRemote(workspaceId: string, fn: (meta: RemoteMeta | undefined) => RemoteMeta | undefined): void;
+  setAi(patch: Partial<AiSettings>): void;
+  toggleAi(open?: boolean): void;
 }
 
 /**
@@ -155,6 +160,8 @@ export const useStore = create<State & Actions>()(
         hydrated: false,
         servers: [],
         remote: {},
+        ai: DEFAULT_AI_SETTINGS,
+        aiOpen: false,
 
         setTheme: (theme) => setState({ theme }),
         select: (selection) => setState({ selection }),
@@ -249,6 +256,8 @@ export const useStore = create<State & Actions>()(
             const { [workspaceId]: _old, ...rest } = s.remote;
             return { remote: next ? { ...rest, [workspaceId]: next } : rest };
           }),
+        setAi: (patch) => setState((s) => ({ ai: { ...s.ai, ...patch } })),
+        toggleAi: (open) => setState((s) => ({ aiOpen: open ?? !s.aiOpen })),
       };
     },
     {
@@ -263,6 +272,9 @@ export const useStore = create<State & Actions>()(
         // Session tokens live here for now; moving them to the OS keychain is planned (docs/limitations.md).
         servers: s.servers,
         remote: s.remote,
+        // The personal AI key is stored with them, same limitation.
+        ai: s.ai,
+        aiOpen: s.aiOpen,
       }),
       onRehydrateStorage: () => () => useStore.setState({ hydrated: true }),
     },

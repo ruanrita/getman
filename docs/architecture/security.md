@@ -43,8 +43,21 @@ tags: [security, 2fa, totp, secrets, sandbox, authentication, sessions, password
 - Scripts run in a fresh Web Worker with a 10 s timeout and no storage access ([scripts](../features/scripts.md#sandbox-and-security)).
 - `pnpm dev` exposes a localhost-only dev proxy protected by a custom header and an Origin check; it does not exist in the desktop build.
 
+## Backups
+- Files are encrypted with AES-256-GCM using a key derived with scrypt (N=2^15) from a per-target passphrase; magic header `GMBK`, random salt and IV per file.
+- Backup credentials (S3 keys, connection strings) and passphrases are stored encrypted with `GETMAN_ENCRYPTION_KEY` and never returned by the API.
+- "Server folder" targets can only write inside `GETMAN_BACKUP_DIR` (relative names, no `.`/`..` segments, resolved path re-checked).
+
+## Outbound connections (SSRF protection)
+Any user can create a workspace and become its owner, so workspace settings must not let the server reach internal services. Backup endpoints, PostgreSQL targets and workspace AI base URLs are resolved and **rejected if they point at loopback, private, link-local, CGNAT or unique-local addresses**, unless the operator sets `GETMAN_ALLOW_PRIVATE_NETWORKS=true` (needed for LAN MinIO, an internal database or a self-hosted LLM). The check happens before each connection; DNS rebinding between check and connect is not prevented.
+
+## AI keys
+- **Personal keys** stay on the device and go only to the chosen provider.
+- **Workspace keys** are stored encrypted on the server and never sent to clients; the server calls the provider and logs usage per member.
+- Requests attached to a question have secrets, local values and credential headers masked before leaving the device.
+- Replies are rendered as text (a minimal Markdown renderer that builds elements; no HTML from the model is executed).
+
 ## Planned
-- Session tokens in the **OS keychain** (today: app storage).
+- Session tokens and personal AI keys in the **OS keychain** (today: app storage).
 - Email verification, password reset and email invitations (needs SMTP).
 - OIDC/SSO login, WebAuthn/passkeys as second factor.
-- Encryption at rest for workspace-level AI keys and backup credentials (same key as 2FA secrets).

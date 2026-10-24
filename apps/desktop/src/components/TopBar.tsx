@@ -12,7 +12,8 @@ export function TopBar({ open }: { open(modal: ModalName): void }) {
   const meta = useStore((s) => s.remote[ws.id]);
   const signedIn = useStore((s) => s.servers.some((a) => a.token));
   const theme = useStore((s) => s.theme);
-  const { setActiveWorkspace, setActiveEnvironment, setTheme } = useStore.getState();
+  const aiOpen = useStore((s) => s.aiOpen);
+  const { setActiveWorkspace, setActiveEnvironment, setTheme, toggleAi } = useStore.getState();
 
   const local = workspaces.filter((w) => w.storage.kind === "local");
   const byServer = new Map<string, typeof workspaces>();
@@ -82,6 +83,9 @@ export function TopBar({ open }: { open(modal: ModalName): void }) {
       <button className="btn" onClick={() => open("environments")}>Environments</button>
       <button className="btn" onClick={() => open("import")}>Import</button>
       <button className="btn" onClick={() => open("export")}>Export</button>
+      <button className={`btn ${aiOpen ? "primary" : ""}`} onClick={() => toggleAi()} title="Ask the assistant about Getman">
+        ✦ Ask AI
+      </button>
       <button className="btn" onClick={() => open("account")} title="Servers, sign-in, 2FA">
         {signedIn ? "Account" : "Sign in"}
       </button>

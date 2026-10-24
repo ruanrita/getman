@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Secret, TOTP } from "otpauth";
 import { buildApp } from "../src/app";
 import type { Config } from "../src/config";
@@ -15,13 +17,16 @@ export const config: Config = {
   corsOrigins: ["http://localhost:1420"],
   trustProxy: false,
   authRateLimit: 1000,
+  // Tests talk to local Postgres / S3 / fake AI servers.
+  allowPrivateNetworks: true,
+  backupDir: join(tmpdir(), `getman-test-backups-${process.pid}`),
 };
 
-export async function setup() {
+export async function setup(overrides: Partial<Config> = {}) {
   const sql = connect(TEST_DB);
   await sql.unsafe("drop schema public cascade; create schema public;");
   await migrate(sql);
-  const { app, hub } = await buildApp(sql, config);
+  const { app, hub } = await buildApp(sql, { ...config, ...overrides });
   return { sql, app, hub };
 }
 

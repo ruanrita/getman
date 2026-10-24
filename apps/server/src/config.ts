@@ -9,6 +9,14 @@ export interface Config {
   trustProxy: boolean;
   /** Max attempts per minute per IP on login/register/2FA endpoints. */
   authRateLimit: number;
+  /** Root for "local folder" backup targets. Undefined disables that target kind. */
+  backupDir?: string;
+  /**
+   * Whether backup targets and AI endpoints may point at private/loopback
+   * addresses. Off by default: any user can create a workspace and configure
+   * them, so this blocks using the server to reach internal services (SSRF).
+   */
+  allowPrivateNetworks: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -35,5 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter(Boolean),
     trustProxy: env.TRUST_PROXY === "true",
     authRateLimit: Number(env.AUTH_RATE_LIMIT ?? 10),
+    backupDir: env.GETMAN_BACKUP_DIR || undefined,
+    allowPrivateNetworks: env.GETMAN_ALLOW_PRIVATE_NETWORKS === "true",
   };
 }

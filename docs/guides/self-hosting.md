@@ -34,6 +34,8 @@ This starts PostgreSQL 17 and the server on port **8787**. Database migrations r
 | `SESSION_TTL_DAYS` | | `30` | Sliding session lifetime. |
 | `TRUST_PROXY` | | `false` | `true` behind nginx/Caddy/Traefik so client IPs and rate limits are correct. |
 | `AUTH_RATE_LIMIT` | | `10` | Login/register/2FA attempts per minute per IP. |
+| `GETMAN_BACKUP_DIR` | | (unset) | Enables "server folder" backup targets, written inside this directory. Mount a volume here in Docker. |
+| `GETMAN_ALLOW_PRIVATE_NETWORKS` | | `false` | Lets backup targets and workspace AI base URLs use private/loopback addresses (LAN MinIO, internal Postgres, self-hosted LLM). Leave off on servers open to untrusted users. |
 
 ## HTTPS
 
@@ -53,13 +55,15 @@ WebSockets (`/ws`) pass through Caddy automatically. With nginx, add `proxy_set_
 
 ## Backups
 
-Until built-in backups exist ([backup](../features/backup.md)), back up PostgreSQL:
+Workspace admins configure their own encrypted backups in the app ([backup](../features/backup.md)). As the operator, also back up the whole database:
 
 ```bash
 docker compose exec db pg_dump -U getman getman > getman-$(date +%F).sql
 ```
 
-Keep `GETMAN_ENCRYPTION_KEY` with the backup (but stored separately and securely).
+Keep `GETMAN_ENCRYPTION_KEY` safe and separate from database dumps: it decrypts 2FA secrets, backup credentials and workspace AI keys.
+
+For local development and tests, an S3-compatible store (SeaweedFS) is available: `docker compose --profile s3 up -d s3` (port 58333).
 
 ## Running from source
 
