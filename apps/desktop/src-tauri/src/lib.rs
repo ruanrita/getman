@@ -11,6 +11,7 @@ pub fn run() {
             git::git_pull,
             git::git_commit_push,
             git::git_clone,
+            git::git_init,
             git::getman_read,
             git::getman_write,
         ])

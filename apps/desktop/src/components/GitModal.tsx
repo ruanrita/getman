@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useActiveWorkspace } from "../lib/store";
-import { commitAndPush, pull, refreshStatus, reloadFromDisk, useGit } from "../lib/gitSync";
+import { commitAndPush, initRepository, pull, refreshStatus, reloadFromDisk, useGit } from "../lib/gitSync";
 import { Modal } from "./Modal";
 
 const STATUS_LABEL: Record<string, string> = { M: "modified", A: "added", D: "deleted", R: "renamed", "??": "new", U: "conflict" };
@@ -15,6 +15,7 @@ export function GitModal({ onClose }: { onClose(): void }) {
   const ws = useActiveWorkspace();
   const git = useGit((s) => s[ws.id]);
   const [message, setMessage] = useState("");
+  const [remote, setRemote] = useState("");
   const dir = ws.storage.kind === "git" ? ws.storage.dir : "";
   const st = git?.status;
 
@@ -37,9 +38,19 @@ export function GitModal({ onClose }: { onClose(): void }) {
         </div>
 
         {st && !st.isRepo && (
-          <p className="hint warn" style={{ margin: 0 }}>
-            This folder is not inside a Git repository. Run <code>git init</code> there (or choose a folder in a cloned repository) to commit and push. Getman still saves your changes to the folder.
-          </p>
+          <div className="section backup-target" style={{ display: "grid", gap: 8, margin: 0 }}>
+            <strong>This folder is not a Git repository yet</strong>
+            <span className="muted">
+              Getman already saves your changes here. To commit and share them, initialize a repository. Optionally paste the URL of an empty repository you
+              created on GitHub, GitLab or Bitbucket so the first push goes there.
+            </span>
+            <div className="row">
+              <input className="input mono" style={{ flex: 1 }} placeholder="Remote URL (optional), e.g. git@github.com:team/api.git" value={remote} onChange={(e) => setRemote(e.target.value)} />
+              <button className="btn primary" disabled={Boolean(git?.busy)} onClick={() => void initRepository(ws.id, remote)}>
+                {git?.busy === "Initialize repository" ? "Initializing…" : "Initialize repository here"}
+              </button>
+            </div>
+          </div>
         )}
         {git?.error && <p className="hint warn" style={{ margin: 0 }}>{git.error}</p>}
 

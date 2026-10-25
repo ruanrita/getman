@@ -146,6 +146,13 @@ pub async fn git_commit_push(dir: String, message: String) -> Result<GitOutput, 
         if !commit.ok && !commit.output.contains("nothing to commit") {
             return Ok(commit);
         }
+        let remotes = git(&path, &["remote"])?;
+        if remotes.output.is_empty() {
+            return Ok(GitOutput {
+                ok: true,
+                output: format!("{}\nCommitted locally. This repository has no remote yet: add one (e.g. git remote add origin <url>) to push.", commit.output).trim().to_string(),
+            });
+        }
         let has_upstream = git(&path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])?.ok;
         let push = if has_upstream { git(&path, &["push"])? } else { git(&path, &["push", "--set-upstream", "origin", "HEAD"])? };
         Ok(GitOutput { ok: push.ok, output: format!("{}\n{}", commit.output, push.output).trim().to_string() })
@@ -167,6 +174,32 @@ pub async fn git_clone(url: String, parent: String) -> Result<String, String> {
             return Err(out.output);
         }
         Ok(parent_path.join(name).to_string_lossy().to_string())
+    })
+    .await
+}
+
+/// `git init` in `dir` (branch `main`), optionally adding `remote` as `origin`.
+#[tauri::command]
+pub async fn git_init(dir: String, remote: Option<String>) -> Result<GitOutput, String> {
+    blocking(move || {
+        let path = existing_dir(&dir)?;
+        let mut log = vec![];
+        let init = git(&path, &["init", "--initial-branch=main"])?;
+        if !init.ok {
+            return Ok(init);
+        }
+        log.push(init.output);
+        if let Some(url) = remote.map(|r| r.trim().to_string()).filter(|r| !r.is_empty()) {
+            if url.starts_with('-') {
+                return Err("Invalid remote URL".into());
+            }
+            let add = git(&path, &["remote", "add", "origin", "--", &url])?;
+            log.push(if add.ok { format!("Remote origin set to {url}") } else { add.output.clone() });
+            if !add.ok {
+                return Ok(GitOutput { ok: false, output: log.join("\n") });
+            }
+        }
+        Ok(GitOutput { ok: true, output: log.join("\n") })
     })
     .await
 }

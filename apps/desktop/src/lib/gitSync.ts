@@ -259,6 +259,8 @@ async function run(wsId: string, label: string, fn: (dir: string) => Promise<Git
   }
 }
 
+export const initRepository = (wsId: string, remote: string) =>
+  run(wsId, "Initialize repository", (dir) => invoke<GitOutput>("git_init", { dir, remote: remote.trim() || null }));
 export const pull = (wsId: string) => run(wsId, "Pull", (dir) => invoke<GitOutput>("git_pull", { dir }));
 export const commitAndPush = (wsId: string, message: string) => run(wsId, "Commit & push", (dir) => invoke<GitOutput>("git_commit_push", { dir, message }));
 

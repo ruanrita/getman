@@ -21,6 +21,8 @@ Store a workspace **inside your code repository**, so API requests are versioned
 - **Folder on this computer:** choose the repository folder (or any folder inside it). If it already has `.getman/`, that workspace opens; otherwise a new one is created with the name you typed.
 - **Clone a repository:** paste the clone URL (`git@github.com:team/api.git`, `https://bitbucket.org/team/api.git`, …) and choose where to clone it.
 
+If the folder is not a Git repository yet, open the **⎇** panel and click **Initialize repository here** (runs `git init` with branch `main`). Optionally paste the URL of an empty repository you created on GitHub, GitLab or Bitbucket; it becomes `origin` and the first **Commit & push** sets the upstream. Without a remote, Commit & push commits locally and tells you to add one.
+
 An existing local workspace can be moved too: **⚙ → Save to a Git folder…** (the local copy is kept).
 
 Teammates open the same repository folder in their Getman to get the same workspace.
