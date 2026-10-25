@@ -46,7 +46,7 @@ your-repo/
 - One file per request keeps diffs and merge conflicts small.
 - File names come from item names (`List payments` → `list-payments.yaml`); renaming an item renames its file.
 - Files are plain YAML: you can edit them in your editor, and files added by hand are picked up (appended after the saved order).
-- Getman saves to the folder about half a second after each edit, so `git diff` always shows what you changed.
+- Files are written when you **save** (Ctrl+S, Save, Save all; see [saving](saving.md)), so `git diff` shows exactly what you saved.
 - **Never written:** secret values and device-local values. Secret variables are written with an empty value and `secret: true`, so teammates see they must fill them in locally.
 
 ## Commit, push, pull

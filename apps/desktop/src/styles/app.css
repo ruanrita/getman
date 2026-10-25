@@ -685,3 +685,14 @@ pre.code {
 .backup-target label {
   flex: 1;
 }
+
+/* ---------- unsaved drafts ---------- */
+
+.unsaved-mark {
+  color: var(--accent);
+  font-weight: 700;
+}
+.saved-mark {
+  font-size: 12px;
+  padding: 0 6px;
+}

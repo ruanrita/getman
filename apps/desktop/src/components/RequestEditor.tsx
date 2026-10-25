@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { HTTP_METHODS, splitUrl, type BodyMode, type HttpMethod, type RequestItem } from "@getman/core";
 import { exportCurl } from "@getman/importers";
 import { previewRequest, runRequest } from "../lib/runRequest";
+import { draftKey } from "../lib/drafts";
 import { useStore } from "../lib/store";
+import { SaveControls } from "./SaveControls";
 import { toast } from "../lib/ui";
 import { AuthEditor } from "./AuthEditor";
 import { KeyValueTable } from "./KeyValueTable";
@@ -19,8 +21,11 @@ interface Props {
 export function RequestEditor({ collectionId, request }: Props) {
   const [tab, setTab] = useState<Tab>("params");
   const running = useStore((s) => s.running[request.id]);
+  const key = draftKey(useStore.getState().activeWorkspaceId, "request", request.id);
+  const dirty = useStore((s) => Boolean(s.drafts[key]));
+  // Edits become a draft; Save (Ctrl+S) copies it into the workspace and syncs.
   const update = (patch: Partial<RequestItem>) =>
-    useStore.getState().updateItem(collectionId, request.id, (i) => ({ ...i, ...patch }) as RequestItem);
+    useStore.getState().editDraft({ kind: "request", collectionId, id: request.id, value: { ...request, ...patch } });
 
   /** Moves a query string typed or pasted into the URL over to the Params table. */
   const normalizeUrl = () => {
@@ -64,7 +69,10 @@ export function RequestEditor({ collectionId, request }: Props) {
   return (
     <div className="editor">
       <div className="editor-head">
-        <input className="input bare" style={{ fontSize: 15, fontWeight: 600, width: "100%" }} value={request.name} aria-label="Request name" onChange={(e) => update({ name: e.target.value })} />
+        <div className="row">
+          <input className="input bare" style={{ fontSize: 15, fontWeight: 600, flex: 1 }} value={request.name} aria-label="Request name" onChange={(e) => update({ name: e.target.value })} />
+          <SaveControls draftKeyValue={key} dirty={dirty} />
+        </div>
         <div className="urlbar">
           <select
             className={`select method-${request.method}`}

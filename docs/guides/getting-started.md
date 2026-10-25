@@ -59,5 +59,7 @@ The tour collection shows the most common pattern: log in, store the token, use 
 | Keys | Action |
 |---|---|
 | `Ctrl/Cmd + Enter` | Send request |
+| `Ctrl/Cmd + S` | Save the item you are editing ([saving](../features/saving.md)) |
+| `Ctrl/Cmd + Shift + S` | Save all unsaved changes |
 | `Esc` | Close dialog |
 | Double-click a name in the sidebar | Rename |

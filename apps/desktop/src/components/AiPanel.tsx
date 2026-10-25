@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { describeContext, PRESETS, sendChat, type AiSettings, type ChatMessage } from "../lib/ai";
-import { useActiveWorkspace, useStore } from "../lib/store";
+import { useEffectiveWorkspace, useStore } from "../lib/store";
 import { apiFor } from "../lib/sync";
 import { Markdown } from "./Markdown";
 
@@ -12,7 +12,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiPanel() {
-  const ws = useActiveWorkspace();
+  const ws = useEffectiveWorkspace();
   const settings = useStore((s) => s.ai);
   const selection = useStore((s) => s.selection);
   const results = useStore((s) => s.results);

@@ -25,7 +25,7 @@ Setup: [self-hosting](../guides/self-hosting.md). Protocol: [server API](server-
 
 **Desktop side** (`apps/desktop/src/lib/sync.ts`):
 - The workspace is cached in the app, so it opens instantly and works offline.
-- A store subscription detects which collection / environment / globals changed (updates are immutable, so changed objects have new identities) and pushes them after a 600 ms debounce. Changes to local values only are not pushed.
+- Edits are drafts until the user saves ([saving](../features/saving.md)); only saved state is synced. A store subscription detects which collection / environment / globals changed (updates are immutable, so changed objects have new identities) and pushes them after a 600 ms debounce. Changes to local values only are not pushed.
 - Every write carries the version it was based on. On `409 version_conflict` the server copy is applied and the user sees a notice. The unit of conflict is one collection or environment.
 - One WebSocket per server receives teammates' changes; events that echo our own writes are recognised and ignored. On reconnect the app reloads the snapshot to catch up.
 - When server data replaces local data, this device's local values are merged back in by variable key.
@@ -41,7 +41,7 @@ Setup: [self-hosting](../guides/self-hosting.md). Protocol: [server API](server-
 User guide: [Git workspaces](../features/git.md).
 
 - The `.getman/` folder of a working copy is the source of truth; the app keeps a cached copy only for device-local values (merged back by variable key).
-- Writes: a store subscription debounces edits (400 ms), serialises the workspace with `workspaceToFiles`, and writes only files whose content changed (`diffFiles`), deleting removed ones and empty folders.
+- Writes: on save, a store subscription debounces (400 ms), serialises the workspace with `workspaceToFiles`, and writes only files whose content changed (`diffFiles`), deleting removed ones and empty folders.
 - Reads: on start, on window focus, after Pull and on Refresh the folder is read and parsed with `filesToWorkspace`; if it differs from what Getman last wrote, the workspace is replaced. Parse errors (conflict markers, bad YAML) are shown and the last good copy is kept.
 - Git operations run the system `git` through a fixed set of Tauri commands (`git.rs`): status of `.getman/`, `pull --ff-only`, add + commit limited to `.getman/` + push, clone. Terminal prompts are disabled so a missing credential fails instead of hanging.
 - Files are written with LF; a `.getman/.gitattributes` (`* text eol=lf`) is created with the workspace.

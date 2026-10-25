@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { newEnvironment } from "@getman/core";
-import { useActiveWorkspace, useStore } from "../lib/store";
+import { draftKey } from "../lib/drafts";
+import { useEffectiveWorkspace, useStore } from "../lib/store";
+import { SaveControls } from "./SaveControls";
 import { Modal } from "./Modal";
 import { VariablesTable } from "./VariablesTable";
 
 const GLOBALS = "__globals__";
 
 export function EnvironmentsModal({ onClose }: { onClose(): void }) {
-  const ws = useActiveWorkspace();
-  const { addEnvironment, updateEnvironment, removeEnvironment, setGlobals, setActiveEnvironment } = useStore.getState();
+  const ws = useEffectiveWorkspace();
+  const drafts = useStore((s) => s.drafts);
+  const { addEnvironment, removeEnvironment, setActiveEnvironment, editDraft } = useStore.getState();
+  // Edits are drafts until saved, like requests.
+  const updateEnvironment = (id: string, fn: (e: (typeof ws.environments)[number]) => (typeof ws.environments)[number]) => {
+    const current = ws.environments.find((e) => e.id === id);
+    if (current) editDraft({ kind: "environment", id, value: fn(current) });
+  };
+  const setGlobals = (value: typeof ws.globals) => editDraft({ kind: "globals", id: "globals", value });
+  const keyOf = (id: string) => (id === GLOBALS ? draftKey(ws.id, "globals", "globals") : draftKey(ws.id, "environment", id));
   const [selected, setSelected] = useState<string>(ws.activeEnvironmentId ?? ws.environments[0]?.id ?? GLOBALS);
   const env = ws.environments.find((e) => e.id === selected);
 
@@ -23,13 +33,14 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
       <div className="envs">
         <div className="env-list">
           <button className={`btn ghost ${selected === GLOBALS ? "primary" : ""}`} onClick={() => setSelected(GLOBALS)}>
-            🌐 Globals
+            🌐 Globals{drafts[keyOf(GLOBALS)] ? " ●" : ""}
           </button>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", width: "100%" }} />
           {ws.environments.map((e) => (
             <button key={e.id} className={`btn ghost ${selected === e.id ? "primary" : ""}`} onClick={() => setSelected(e.id)}>
-              {e.id === ws.activeEnvironmentId ? "● " : ""}
+              {e.id === ws.activeEnvironmentId ? "✓ " : ""}
               {e.name}
+              {drafts[keyOf(e.id)] ? <span className="unsaved-mark"> ●</span> : null}
             </button>
           ))}
           <button className="btn" style={{ marginTop: 8 }} onClick={create}>
@@ -40,6 +51,9 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
         <div>
           {selected === GLOBALS && (
             <>
+              <div className="row" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
+                <SaveControls draftKeyValue={keyOf(GLOBALS)} dirty={Boolean(drafts[keyOf(GLOBALS)])} />
+              </div>
               <p className="hint" style={{ marginBottom: 12 }}>
                 Globals apply to every collection in this workspace. Lowest precedence: environment and collection variables override them.
               </p>
@@ -56,6 +70,7 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
                   aria-label="Environment name"
                   onChange={(e) => updateEnvironment(env.id, (x) => ({ ...x, name: e.target.value }))}
                 />
+                <SaveControls draftKeyValue={keyOf(env.id)} dirty={Boolean(drafts[keyOf(env.id)])} />
                 {ws.activeEnvironmentId !== env.id ? (
                   <button className="btn" onClick={() => setActiveEnvironment(env.id)}>
                     Set active

@@ -21,6 +21,7 @@ import {
 import type { ImportResult } from "@getman/importers";
 import type { LogEntry, TestResult, VariableChange } from "@getman/scripts";
 import { DEFAULT_AI_SETTINGS, type AiSettings } from "./aiConfig";
+import { draftKey, draftsOf, effectiveWorkspace, fingerprint, savedChangedSince, savedValueOf, type Draft, type DraftInput } from "./drafts";
 import type { ServerMember, ServerUser } from "./api";
 import { LOCAL_USER, seedWorkspace } from "./seed";
 import { toast } from "./ui";
@@ -72,7 +73,11 @@ interface State {
   remote: Record<string, RemoteMeta>;
   ai: AiSettings;
   aiOpen: boolean;
+  /** Unsaved edits, keyed by draftKey(). Kept on this device; see drafts.ts. */
+  drafts: Record<string, Draft>;
 }
+
+export type SaveResult = "saved" | "conflict" | "denied" | "missing" | "none";
 
 interface Actions {
   setTheme(theme: Theme): void;
@@ -103,6 +108,16 @@ interface Actions {
   setRemote(workspaceId: string, fn: (meta: RemoteMeta | undefined) => RemoteMeta | undefined): void;
   setAi(patch: Partial<AiSettings>): void;
   toggleAi(open?: boolean): void;
+  /** Records an edit as a draft of the active workspace (dropped again if it equals the saved value). */
+  editDraft(draft: DraftInput): void;
+  discardDraft(key: string): void;
+  /**
+   * Copies a draft into the workspace, which triggers sync. Returns "conflict"
+   * (and keeps the draft) if someone else saved the item meanwhile, unless `force`.
+   */
+  saveDraft(key: string, force?: boolean): SaveResult;
+  /** Saves every draft of the active workspace; returns the keys left unsaved because of conflicts. */
+  saveAll(force?: boolean): string[];
 }
 
 /**
@@ -146,6 +161,15 @@ export const useStore = create<State & Actions>()(
       const guarded = (action: Action, fn: (ws: Workspace) => Workspace) => {
         if (allowed(getState(), action)) updateWs(fn);
       };
+      const activeWs = () => {
+        const s = getState();
+        return s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? s.workspaces[0]!;
+      };
+      const dropDrafts = (match: (d: Draft) => boolean) =>
+        setState((s) => ({ drafts: Object.fromEntries(Object.entries(s.drafts).filter(([, d]) => d.wsId !== s.activeWorkspaceId || !match(d))) }));
+      /** Fingerprint of a draft's saved counterpart captured before applyChanges mutates it. */
+      const savedBefore = new Map<string, string>();
+      const fingerprintBefore = (key: string) => savedBefore.get(key);
       const updateCol = (collectionId: string, fn: (c: Collection) => Collection) =>
         guarded("collections.write", (ws) => ({ ...ws, collections: ws.collections.map((c) => (c.id === collectionId ? fn(c) : c)) }));
 
@@ -162,6 +186,7 @@ export const useStore = create<State & Actions>()(
         remote: {},
         ai: DEFAULT_AI_SETTINGS,
         aiOpen: false,
+        drafts: {},
 
         setTheme: (theme) => setState({ theme }),
         select: (selection) => setState({ selection }),
@@ -177,13 +202,26 @@ export const useStore = create<State & Actions>()(
         addCollection: (collection) => guarded("collections.write", (ws) => ({ ...ws, collections: [...ws.collections, collection] })),
         removeCollection: (collectionId) => {
           guarded("collections.write", (ws) => ({ ...ws, collections: ws.collections.filter((c) => c.id !== collectionId) }));
+          dropDrafts((d) => (d.kind === "request" ? d.collectionId : d.kind === "collection" ? d.id : undefined) === collectionId && !activeWs().collections.some((c) => c.id === collectionId));
           if (getState().selection?.collectionId === collectionId) setState({ selection: null });
         },
 
-        updateItem: (collectionId, itemId, fn) => updateCol(collectionId, (c) => ({ ...c, items: updateItem(c.items, itemId, fn) })),
+        updateItem: (collectionId, itemId, fn) => {
+          updateCol(collectionId, (c) => ({ ...c, items: updateItem(c.items, itemId, fn) }));
+          const s = getState();
+          const key = draftKey(s.activeWorkspaceId, "request", itemId);
+          const d = s.drafts[key];
+          const ws = s.workspaces.find((w) => w.id === s.activeWorkspaceId);
+          const saved = ws && d ? savedValueOf(ws, d) : undefined;
+          if (d?.kind === "request" && saved) {
+            const name = (saved as { name: string }).name;
+            setState({ drafts: { ...s.drafts, [key]: { ...d, value: { ...d.value, name }, base: fingerprint(saved) } } });
+          }
+        },
         addItem: (collectionId, item, parentId) => updateCol(collectionId, (c) => ({ ...c, items: insertItem(c.items, item, parentId) })),
         removeItem: (collectionId, itemId) => {
           updateCol(collectionId, (c) => ({ ...c, items: removeItem(c.items, itemId) }));
+          dropDrafts((d) => d.kind === "request" && d.collectionId === collectionId && !savedValueOf(activeWs(), d));
           if (getState().selection?.itemId === itemId) setState({ selection: { collectionId } });
         },
 
@@ -191,12 +229,14 @@ export const useStore = create<State & Actions>()(
         addEnvironment: (env) => guarded("environments.write", (ws) => ({ ...ws, environments: [...ws.environments, env] })),
         updateEnvironment: (id, fn) =>
           guarded("environments.write", (ws) => ({ ...ws, environments: ws.environments.map((e) => (e.id === id ? fn(e) : e)) })),
-        removeEnvironment: (id) =>
+        removeEnvironment: (id) => {
           guarded("environments.write", (ws) => ({
             ...ws,
             environments: ws.environments.filter((e) => e.id !== id),
             activeEnvironmentId: ws.activeEnvironmentId === id ? undefined : ws.activeEnvironmentId,
-          })),
+          }));
+          dropDrafts((d) => d.kind === "environment" && d.id === id && !activeWs().environments.some((e) => e.id === id));
+        },
         setGlobals: (globals) => guarded("environments.write", (ws) => ({ ...ws, globals })),
 
         importResult: (result) =>
@@ -208,6 +248,10 @@ export const useStore = create<State & Actions>()(
 
         applyChanges: (collectionId, changes) => {
           if (!changes.length) return;
+          savedBefore.clear();
+          for (const [key, d] of Object.entries(getState().drafts)) {
+            if (d.wsId === getState().activeWorkspaceId && d.kind !== "request") savedBefore.set(key, fingerprint(savedValueOf(activeWs(), d)));
+          }
           const runtime = { ...getState().runtime };
           updateWs((ws) => {
             let { environments, globals, collections } = ws;
@@ -230,6 +274,22 @@ export const useStore = create<State & Actions>()(
             return { ...ws, environments, globals, collections };
           });
           setState({ runtime });
+          const s = getState();
+          const ws = activeWs();
+          const drafts = { ...s.drafts };
+          for (const [key, d] of Object.entries(drafts)) {
+            if (d.wsId !== ws.id || d.kind === "request") continue;
+            if (d.kind === "collection" && d.id !== collectionId) continue;
+            if (d.kind === "environment" && d.id !== ws.activeEnvironmentId) continue;
+            const scope = d.kind === "collection" ? "collection" : d.kind === "environment" ? "environment" : "globals";
+            let vars = d.kind === "globals" ? d.value : d.value.variables;
+            for (const ch of changes) if (ch.scope === scope) vars = upsertLocal(vars, ch.key, ch.value);
+            const value = d.kind === "globals" ? vars : { ...d.value, variables: vars };
+            // A key a script created exists in both copies now, so it is not an edit.
+            const base = d.base === fingerprintBefore(key) ? fingerprint(savedValueOf(ws, d)) : d.base;
+            drafts[key] = { ...d, value, base } as Draft;
+          }
+          setState({ drafts });
         },
 
         setRunning: (requestId, running) => setState((s) => ({ running: { ...s.running, [requestId]: running } })),
@@ -248,7 +308,8 @@ export const useStore = create<State & Actions>()(
             const { [id]: _gone, ...remote } = s.remote;
             if (!workspaces.length) workspaces.push(seedWorkspace());
             const active = s.activeWorkspaceId === id ? workspaces[0]!.id : s.activeWorkspaceId;
-            return { workspaces, remote, activeWorkspaceId: active, selection: s.activeWorkspaceId === id ? null : s.selection };
+            const drafts = Object.fromEntries(Object.entries(s.drafts).filter(([, d]) => d.wsId !== id));
+            return { workspaces, remote, drafts, activeWorkspaceId: active, selection: s.activeWorkspaceId === id ? null : s.selection };
           }),
         setRemote: (workspaceId, fn) =>
           setState((s) => {
@@ -256,6 +317,66 @@ export const useStore = create<State & Actions>()(
             const { [workspaceId]: _old, ...rest } = s.remote;
             return { remote: next ? { ...rest, [workspaceId]: next } : rest };
           }),
+        editDraft: (input) => {
+          const s = getState();
+          const ws = activeWs();
+          const key = draftKey(ws.id, input.kind, input.id);
+          const saved = savedValueOf(ws, input as Draft);
+          const existing = s.drafts[key];
+          if (saved !== undefined && fingerprint(saved) === fingerprint(input.value) && (!existing || !savedChangedSince(ws, existing))) {
+            // Nothing shareable changed. Device-local values (never synced) are kept straight away.
+            if (input.kind === "environment") updateWs((w) => ({ ...w, environments: w.environments.map((e) => (e.id === input.id ? (input.value as Environment) : e)) }));
+            if (input.kind === "globals") updateWs((w) => ({ ...w, globals: input.value as Variable[] }));
+            if (input.kind === "collection") updateWs((w) => ({ ...w, collections: w.collections.map((c) => (c.id === input.id ? { ...c, ...(input.value as object), items: c.items } : c)) }));
+            const { [key]: _gone, ...rest } = getState().drafts;
+            return setState({ drafts: rest });
+          }
+          const draft = { ...input, wsId: ws.id, base: existing?.base ?? fingerprint(saved) } as Draft;
+          setState({ drafts: { ...s.drafts, [key]: draft } });
+        },
+        discardDraft: (key) =>
+          setState((s) => {
+            const { [key]: _gone, ...rest } = s.drafts;
+            return { drafts: rest };
+          }),
+        saveDraft: (key, force = false) => {
+          const s = getState();
+          const d = s.drafts[key];
+          if (!d) return "none";
+          const ws = s.workspaces.find((w) => w.id === d.wsId);
+          if (!ws || ws.id !== s.activeWorkspaceId) return "missing";
+          if (!allowed(s, d.kind === "environment" || d.kind === "globals" ? "environments.write" : "collections.write")) return "denied";
+          if (!force && savedChangedSince(ws, d)) return "conflict";
+
+          const exists = savedValueOf(ws, d) !== undefined;
+          if (d.kind === "request") {
+            if (exists) updateWs((w) => ({ ...w, collections: w.collections.map((c) => (c.id === d.collectionId ? { ...c, items: updateItem(c.items, d.id, () => d.value) } : c)) }));
+            else if (ws.collections.some((c) => c.id === d.collectionId)) {
+              // Deleted by someone else while you edited it: bring it back.
+              updateWs((w) => ({ ...w, collections: w.collections.map((c) => (c.id === d.collectionId ? { ...c, items: insertItem(c.items, d.value) } : c)) }));
+              toast(`"${d.value.name}" had been deleted by someone else; your version was saved again.`);
+            } else return "missing";
+          } else if (d.kind === "collection") {
+            if (!exists) return "missing";
+            updateWs((w) => ({ ...w, collections: w.collections.map((c) => (c.id === d.id ? { ...c, ...d.value, items: c.items } : c)) }));
+          } else if (d.kind === "environment") {
+            updateWs((w) => ({ ...w, environments: exists ? w.environments.map((e) => (e.id === d.id ? d.value : e)) : [...w.environments, d.value] }));
+          } else {
+            updateWs((w) => ({ ...w, globals: d.value }));
+          }
+          getState().discardDraft(key);
+          return "saved";
+        },
+        saveAll: (force = false) => {
+          const s = getState();
+          const conflicts: string[] = [];
+          for (const d of draftsOf(s.drafts, s.activeWorkspaceId)) {
+            const key = draftKey(d.wsId, d.kind, d.id);
+            if (getState().saveDraft(key, force) === "conflict") conflicts.push(key);
+          }
+          return conflicts;
+        },
+
         setAi: (patch) => setState((s) => ({ ai: { ...s.ai, ...patch } })),
         toggleAi: (open) => setState((s) => ({ aiOpen: open ?? !s.aiOpen })),
       };
@@ -275,6 +396,8 @@ export const useStore = create<State & Actions>()(
         // The personal AI key is stored with them, same limitation.
         ai: s.ai,
         aiOpen: s.aiOpen,
+        // Unsaved edits survive restarts: closing the app never loses work.
+        drafts: s.drafts,
       }),
       onRehydrateStorage: () => () => useStore.setState({ hydrated: true }),
     },
@@ -283,4 +406,16 @@ export const useStore = create<State & Actions>()(
 
 export function useActiveWorkspace(): Workspace {
   return useStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? s.workspaces[0]!);
+}
+
+/** The active workspace with this device's unsaved drafts applied: what the user sees and sends. */
+export function useEffectiveWorkspace(): Workspace {
+  const ws = useActiveWorkspace();
+  const drafts = useStore((s) => s.drafts);
+  return effectiveWorkspace(ws, drafts);
+}
+
+export function effectiveActiveWorkspace(): Workspace {
+  const s = useStore.getState();
+  return effectiveWorkspace(s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? s.workspaces[0]!, s.drafts);
 }

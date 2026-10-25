@@ -13,8 +13,9 @@ Keep this page current: when a limitation is fixed, delete its entry in the same
 - **No SSO/OIDC login or passkeys yet.**
 - **Without SMTP on the server** there is no email verification or self-service password reset (the operator resets passwords with `node dist/admin.js reset-password <email>`); invitations still work with the code shown to the admin.
 - Invitations go to one email address; there are no shareable "anyone with the link" invites.
-- **Simultaneous edits to the same collection:** the version saved first wins. The other person's last edit to that collection (up to ~1 second of typing) is replaced and they see a notice. Edits to different collections never conflict.
-- **Offline edits** to server workspaces are kept and pushed when the server is reachable again; if someone changed the same collection meanwhile, the rule above applies.
+- **Two people saving the same collection within the same second:** the server keeps one save per collection version; the other save is replaced by the server copy and that person sees a notice (their draft is gone, redo the edit). Saving the same *request* someone else changed while you were editing asks first ([saving](features/saving.md)).
+- **Offline saves** to server workspaces are kept and pushed when the server is reachable again; the rule above applies if someone saved the same collection meanwhile.
+- No side-by-side comparison of your draft and a teammate's version yet.
 - **Session tokens and personal AI keys** are stored in the app's local storage, not yet in the OS keychain.
 - **One server instance only.** Live updates are delivered in-process; running replicas behind a load balancer would miss events.
 - **Signing out removes that server's workspaces from the device** (including local values typed for them).

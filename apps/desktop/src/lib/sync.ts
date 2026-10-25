@@ -15,6 +15,7 @@
  */
 import { sanitizeVariables, type Collection, type Environment, type Variable, type Workspace } from "@getman/core";
 import { ApiError, ServerApi, type WorkspaceSnapshot, type WorkspaceSummary } from "./api";
+import { stable } from "./json";
 import { useStore, type RemoteMeta } from "./store";
 import { toast } from "./ui";
 
@@ -33,12 +34,6 @@ function remoteApply(fn: () => void) {
   }
 }
 
-/** JSON with sorted keys, so copies that went through Postgres JSONB compare equal. */
-function stable(value: unknown): string {
-  return JSON.stringify(value, (_k, v) =>
-    v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v,
-  );
-}
 
 const keys = { collection: (id: string) => `c:${id}`, environment: (id: string) => `e:${id}`, globals: "g" };
 

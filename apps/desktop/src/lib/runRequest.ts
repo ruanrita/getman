@@ -11,12 +11,12 @@ import {
 } from "@getman/core";
 import type { ScriptVariables } from "@getman/scripts";
 import { runScriptIsolated } from "./scriptRunner";
-import { useStore, type RunResult } from "./store";
+import { effectiveActiveWorkspace, useStore, type RunResult } from "./store";
 import { sendHttp } from "./transport";
 
+/** What the user sees, unsaved drafts included: Send works before Save, like Postman. */
 function currentWorkspace(): Workspace {
-  const s = useStore.getState();
-  return s.workspaces.find((w) => w.id === s.activeWorkspaceId)!;
+  return effectiveActiveWorkspace();
 }
 
 /** Snapshot of every scope, re-read after each script so later scripts see earlier changes. */

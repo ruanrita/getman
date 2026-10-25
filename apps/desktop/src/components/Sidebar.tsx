@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { newCollection, newFolder, newRequest, type Collection, type Item } from "@getman/core";
-import { useActiveWorkspace, useStore } from "../lib/store";
+import { draftKey } from "../lib/drafts";
+import { useEffectiveWorkspace, useStore } from "../lib/store";
 
 export function Sidebar() {
-  const ws = useActiveWorkspace();
+  const ws = useEffectiveWorkspace();
   const addCollection = useStore((s) => s.addCollection);
   const select = useStore((s) => s.select);
   const [filter, setFilter] = useState("");
@@ -44,6 +45,7 @@ function CollectionNode({ collection, filter }: { collection: Collection; filter
   const selection = useStore((s) => s.selection);
   const { select, addItem, removeCollection, updateCollection } = useStore.getState();
   const selected = selection?.collectionId === collection.id && !selection.itemId;
+  const collectionDirty = useStore((s) => Boolean(s.drafts[draftKey(s.activeWorkspaceId, "collection", collection.id)]));
 
   const addRequest = () => {
     const r = newRequest();
@@ -60,6 +62,7 @@ function CollectionNode({ collection, filter }: { collection: Collection; filter
         </span>
         <span className="label" onDoubleClick={() => rename(collection.name, (name) => updateCollection(collection.id, (c) => ({ ...c, name })))}>
           {collection.name}
+          {collectionDirty && <span className="unsaved-mark" title="Unsaved changes"> ●</span>}
         </span>
         <span className="actions" onClick={(e) => e.stopPropagation()}>
           <button className="btn ghost icon" title="New request" aria-label="New request" onClick={addRequest}>
@@ -90,6 +93,7 @@ function ItemNode({ item, collectionId, depth, filter }: { item: Item; collectio
   const [open, setOpen] = useState(true);
   const selected = useStore((s) => s.selection?.itemId === item.id);
   const running = useStore((s) => s.running[item.id]);
+  const dirty = useStore((s) => Boolean(s.drafts[draftKey(s.activeWorkspaceId, "request", item.id)]));
   const { select, addItem, removeItem, updateItem } = useStore.getState();
   const pad = { paddingLeft: depth * 14 };
 
@@ -102,6 +106,7 @@ function ItemNode({ item, collectionId, depth, filter }: { item: Item; collectio
         <span className={`method method-${item.method}`}>{running ? "···" : item.method === "DELETE" ? "DEL" : item.method}</span>
         <span className="label" onDoubleClick={renameItem}>
           {item.name}
+          {dirty && <span className="unsaved-mark" title="Unsaved changes"> ●</span>}
         </span>
         <span className="actions" onClick={(e) => e.stopPropagation()}>
           <button className="btn ghost icon danger" title="Delete" aria-label="Delete request" onClick={del}>

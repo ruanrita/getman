@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { flattenRequests, type Collection } from "@getman/core";
+import { draftKey } from "../lib/drafts";
 import { useStore } from "../lib/store";
+import { SaveControls } from "./SaveControls";
 import { AuthEditor } from "./AuthEditor";
 import { ScriptEditor } from "./ScriptEditor";
 import { VariablesTable } from "./VariablesTable";
@@ -9,13 +11,21 @@ type Tab = "overview" | "variables" | "auth" | "pre" | "tests";
 
 export function CollectionEditor({ collection }: { collection: Collection }) {
   const [tab, setTab] = useState<Tab>("overview");
-  const update = (patch: Partial<Collection>) => useStore.getState().updateCollection(collection.id, (c) => ({ ...c, ...patch }));
+  const key = draftKey(useStore.getState().activeWorkspaceId, "collection", collection.id);
+  const dirty = useStore((s) => Boolean(s.drafts[key]));
+  const update = (patch: Partial<Collection>) => {
+    const { items: _items, ...settings } = collection;
+    useStore.getState().editDraft({ kind: "collection", id: collection.id, value: { ...settings, ...patch } });
+  };
   const requests = flattenRequests(collection.items).length;
 
   return (
     <div className="editor">
       <div className="editor-head">
-        <input className="input bare" style={{ fontSize: 17, fontWeight: 700, width: "100%" }} value={collection.name} aria-label="Collection name" onChange={(e) => update({ name: e.target.value })} />
+        <div className="row">
+          <input className="input bare" style={{ fontSize: 17, fontWeight: 700, flex: 1 }} value={collection.name} aria-label="Collection name" onChange={(e) => update({ name: e.target.value })} />
+          <SaveControls draftKeyValue={key} dirty={dirty} />
+        </div>
         <p className="muted" style={{ margin: "2px 9px 10px" }}>
           Collection · {requests} request{requests === 1 ? "" : "s"}
         </p>

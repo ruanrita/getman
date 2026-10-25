@@ -1,4 +1,6 @@
 import { useGit } from "../lib/gitSync";
+import { draftsOf } from "../lib/drafts";
+import { saveAll } from "../lib/save";
 import { useActiveWorkspace, useStore, type Theme } from "../lib/store";
 
 export type ModalName = "environments" | "import" | "export" | "account" | "workspace" | "newWorkspace" | "git";
@@ -14,6 +16,7 @@ export function TopBar({ open }: { open(modal: ModalName): void }) {
   const signedIn = useStore((s) => s.servers.some((a) => a.token));
   const theme = useStore((s) => s.theme);
   const aiOpen = useStore((s) => s.aiOpen);
+  const unsaved = useStore((s) => draftsOf(s.drafts, s.activeWorkspaceId).length);
   const { setActiveWorkspace, setActiveEnvironment, setTheme, toggleAi } = useStore.getState();
 
   const gitState = useGit((s) => s[ws.id]);
@@ -85,6 +88,12 @@ export function TopBar({ open }: { open(modal: ModalName): void }) {
       )}
 
       <span className="spacer" />
+
+      {unsaved > 0 && (
+        <button className="btn" onClick={saveAll} title="Save every unsaved change in this workspace (Ctrl+Shift+S)">
+          <span className="unsaved-mark">●</span> {unsaved} unsaved · Save all
+        </button>
+      )}
 
       <select
         className="select"

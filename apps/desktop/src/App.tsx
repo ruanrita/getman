@@ -12,7 +12,9 @@ import { ImportModal } from "./components/ImportModal";
 import { RequestEditor } from "./components/RequestEditor";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar, type ModalName } from "./components/TopBar";
-import { useActiveWorkspace, useStore } from "./lib/store";
+import { draftKey, draftsOf } from "./lib/drafts";
+import { saveAll, saveDraft } from "./lib/save";
+import { useEffectiveWorkspace, useStore } from "./lib/store";
 import { startGitSync } from "./lib/gitSync";
 import { startSync } from "./lib/sync";
 import { useToast } from "./lib/ui";
@@ -21,7 +23,7 @@ export function App() {
   const hydrated = useStore((s) => s.hydrated);
   const theme = useStore((s) => s.theme);
   const selection = useStore((s) => s.selection);
-  const ws = useActiveWorkspace();
+  const ws = useEffectiveWorkspace();
   const toastMessage = useToast((s) => s.message);
   const aiOpen = useStore((s) => s.aiOpen);
   const [modal, setModal] = useState<ModalName | null>(null);
@@ -36,6 +38,26 @@ export function App() {
     startSync();
     startGitSync();
   }, [hydrated]);
+
+  // Ctrl+S saves what you are editing; Ctrl+Shift+S saves everything in this workspace.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+      e.preventDefault();
+      if (e.shiftKey) return saveAll();
+      const s = useStore.getState();
+      if (modal === "environments") {
+        for (const d of draftsOf(s.drafts, s.activeWorkspaceId)) if (d.kind === "environment" || d.kind === "globals") saveDraft(draftKey(d.wsId, d.kind, d.id));
+        return;
+      }
+      const sel = s.selection;
+      if (!sel) return;
+      const key = sel.itemId ? draftKey(s.activeWorkspaceId, "request", sel.itemId) : draftKey(s.activeWorkspaceId, "collection", sel.collectionId);
+      if (s.drafts[key]) saveDraft(key);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal]);
 
   if (!hydrated) return null;
 
