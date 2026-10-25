@@ -10,7 +10,6 @@ tags: [limitations, faq, support]
 Keep this page current: when a limitation is fixed, delete its entry in the same change.
 
 ## Collaboration and accounts
-- **Git storage mode is not available yet.** Use the self-hosted server, or export as Getman YAML and commit it.
 - **Adding members needs an existing account.** There are no email invitations yet; ask the person to create an account on the server first.
 - **No password reset by email.** An admin with database access must reset it. No SSO/OIDC or passkeys yet.
 - **Simultaneous edits to the same collection:** the version saved first wins. The other person's last edit to that collection (up to ~1 second of typing) is replaced and they see a notice. Edits to different collections never conflict.
@@ -40,6 +39,12 @@ Keep this page current: when a limitation is fixed, delete its entry in the same
 - OpenAPI: external `$ref`s (other files/URLs) are not resolved; only the first server URL and the first security scheme are used.
 - Postman: request examples (saved responses), collection-level `protocolProfileBehavior` and unsupported auth types are dropped on import.
 - Exporting from the desktop app downloads through the webview; a native "Save as" dialog is planned.
+
+## Git workspaces
+- Desktop app only, and Git must be installed. Credentials that need a terminal prompt (an SSH key with a passphrase not loaded in the agent) fail instead of asking; load the key in your agent or use Git Credential Manager.
+- Pull only fast-forwards. Diverged branches and merge conflicts are resolved in your terminal or Git tool, not inside Getman.
+- No branch switching, history or diff view inside Getman yet; use your Git tool.
+- Renaming an item renames its file, so Git shows a delete + add.
 
 ## Backups
 - Only server workspaces have built-in backups; local workspaces use **Export**.

@@ -67,4 +67,9 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: { target: "es2022" },
   worker: { format: "es" },
+  // These are imported dynamically, so Vite would only discover them at runtime and
+  // re-optimise mid-session, which can load two copies of React ("Invalid hook call").
+  optimizeDeps: {
+    include: ["@tauri-apps/api/core", "@tauri-apps/plugin-http", "@tauri-apps/plugin-dialog", "@anthropic-ai/sdk", "qrcode"],
+  },
 });

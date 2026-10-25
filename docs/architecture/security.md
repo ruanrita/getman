@@ -39,6 +39,7 @@ tags: [security, 2fa, totp, secrets, sandbox, authentication, sessions, password
 - Role checks on every endpoint; see [roles](../features/roles.md). Audit log of membership and settings changes.
 
 ## Desktop app
+- Git workspaces: the webview can only call fixed git operations (status, pull --ff-only, commit+push of `.getman/`, clone), never arbitrary git arguments; file writes are restricted to `<folder>/.getman/` (relative paths, no `..`). Git credentials stay with the user's git/SSH setup.
 - Tauri CSP limits the webview to its own origin plus WebSocket connections; outgoing HTTP goes through the HTTP plugin.
 - Scripts run in a fresh Web Worker with a 10 s timeout and no storage access ([scripts](../features/scripts.md#sandbox-and-security)).
 - `pnpm dev` exposes a localhost-only dev proxy protected by a custom header and an Origin check; it does not exist in the desktop build.

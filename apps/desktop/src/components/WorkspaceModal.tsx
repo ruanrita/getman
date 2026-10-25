@@ -4,6 +4,7 @@ import { ApiError, type ServerApi } from "../lib/api";
 import { useActiveWorkspace, useStore } from "../lib/store";
 import { apiFor, loadServerWorkspace, publishWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
+import { gitAvailable, moveToGitFolder, pickFolder } from "../lib/gitSync";
 import { BackupsTab } from "./BackupsTab";
 import { Modal } from "./Modal";
 import { WorkspaceAiTab } from "./WorkspaceAiTab";
@@ -59,9 +60,44 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
 
           {isServer ? (
             <ServerGeneral wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} onClose={onClose} />
+          ) : ws.storage.kind === "git" ? (
+            <>
+              <div className="hint">
+                Stored as files in <code>{ws.storage.dir}\.getman</code>. Share it by committing and pushing (⎇ in the top bar). Who can read or change it is decided by
+                your Git host.
+              </div>
+              <button
+                className="btn danger"
+                style={{ justifySelf: "start" }}
+                onClick={() => confirm(`Remove "${ws.name}" from Getman? The files in the folder are not deleted; you can open it again later.`) && (removeWorkspace(ws.id), onClose())}
+              >
+                Remove from Getman
+              </button>
+            </>
           ) : (
             <>
               <div className="hint">This workspace is stored only on this device.</div>
+              {gitAvailable() && (
+                <div className="section">
+                  <h4>Keep it in a Git repository</h4>
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      const dir = await pickFolder("Choose the repository folder (Getman will create .getman/ inside it)");
+                      if (!dir) return;
+                      moveToGitFolder(ws.id, dir).then(
+                        () => (toast("Saved to the Git folder. Commit and push it from the ⎇ button."), onClose()),
+                        (e) => toast(errorText(e)),
+                      );
+                    }}
+                  >
+                    Save to a Git folder…
+                  </button>
+                  <p className="muted" style={{ fontSize: 12 }}>
+                    Writes the workspace as YAML files into <code>.getman/</code> of a folder in your repository. Secrets and local values stay on this device. The local workspace is kept.
+                  </p>
+                </div>
+              )}
               <div className="section">
                 <h4>Share with your team</h4>
                 {servers.length === 0 ? (

@@ -44,7 +44,7 @@ An open source API client that teams can **own**: run it locally, on their own s
 | 9 | Self-hosted server, multi-user workspaces, real-time sync, audit log | ✅ implemented | [self-hosting](guides/self-hosting.md), [storage](architecture/storage.md), [API](architecture/server-api.md) |
 | 10 | Accounts, 2FA (TOTP + recovery codes), sessions, "require 2FA" per workspace | ✅ implemented | [security](architecture/security.md) |
 | 10b | Email invitations, password reset by email, SSO/OIDC, passkeys | 📋 planned | [security](architecture/security.md) |
-| 11 | Git storage mode (GitHub, GitLab, Bitbucket, any remote) | 📋 planned (phase 3) | [storage](architecture/storage.md) |
+| 11 | Git storage mode (GitHub, GitLab, Bitbucket, any remote) using the system git | ✅ implemented (desktop) | [Git workspaces](features/git.md) |
 | 12 | Encrypted, scheduled backups to S3-compatible, server folder or another PostgreSQL; restore | ✅ implemented (server workspaces) | [backup](features/backup.md) |
 | 13 | AI assistant (BYOK per user, or shared per workspace) answering from the docs | ✅ implemented | [AI assistant](features/ai-assistant.md) |
 | 14 | More import formats: Insomnia, HAR, Bruno, Thunder Client | 📋 planned | [import/export](features/import-export.md) |
@@ -68,7 +68,7 @@ An open source API client that teams can **own**: run it locally, on their own s
 **Next.**
 - Email invitations and password reset (needs SMTP settings).
 - Session tokens and AI keys in the OS keychain.
-- Git storage mode, collection runner and CLI (phase 3).
+- Collection runner and CLI (phase 3).
 
 **Phase 3: Git and automation.**
 - Git storage mode, one YAML file per request for clean diffs.

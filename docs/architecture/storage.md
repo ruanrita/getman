@@ -1,15 +1,15 @@
 ---
 title: Storage modes
-summary: Local and self-hosted server (implemented), Git (planned) - how each stores data, syncs, handles conflicts and permissions.
-status: partial
+summary: Local, self-hosted server and Git (all implemented) - how each stores data, syncs, handles conflicts and permissions.
+status: implemented
 tags: [storage, self-hosted, server, git, github, bitbucket, sync, postgres, offline, conflicts]
 ---
 
 # Storage modes
 
-Each workspace picks one mode: **Local** and **Server** exist; **Git** is planned.
+Each workspace picks one mode: **Local**, **Server** or **Git**.
 
-| | Local ✅ | Server ✅ | Git 📋 |
+| | Local ✅ | Server ✅ | Git ✅ (desktop) |
 |---|---|---|---|
 | Where data lives | the app (IndexedDB) | PostgreSQL on your server | a Git repository |
 | Multi-user | no | yes, real time | yes, via commits |
@@ -36,17 +36,12 @@ Setup: [self-hosting](../guides/self-hosting.md). Protocol: [server API](server-
 
 **Scaling:** live events are delivered in-process, so run one instance. Multi-instance needs a shared bus (Postgres `LISTEN/NOTIFY` or Redis); planned.
 
-## Git mode (phase 3)
+## Git mode
 
-- Layout in the repo, one file per request so diffs and merge conflicts stay small:
-  ```
-  .getman/
-    workspace.yaml
-    environments/<name>.yaml
-    collections/<collection>/collection.yaml
-    collections/<collection>/<folder>/<request>.yaml
-  ```
-- The app clones/pulls, edits files, then commits and pushes on **Sync** (explicit, with a commit message).
-- Works with any remote: GitHub, GitLab, Bitbucket, Gitea, Azure DevOps. Auth via HTTPS token or SSH key (stored in the OS keychain).
-- Access control is whatever the Git host enforces; Getman roles don't apply.
-- Merge conflicts in YAML are shown side by side; pick one or edit.
+User guide: [Git workspaces](../features/git.md).
+
+- The `.getman/` folder of a working copy is the source of truth; the app keeps a cached copy only for device-local values (merged back by variable key).
+- Writes: a store subscription debounces edits (400 ms), serialises the workspace with `workspaceToFiles`, and writes only files whose content changed (`diffFiles`), deleting removed ones and empty folders.
+- Reads: on start, on window focus, after Pull and on Refresh the folder is read and parsed with `filesToWorkspace`; if it differs from what Getman last wrote, the workspace is replaced. Parse errors (conflict markers, bad YAML) are shown and the last good copy is kept.
+- Git operations run the system `git` through a fixed set of Tauri commands (`git.rs`): status of `.getman/`, `pull --ff-only`, add + commit limited to `.getman/` + push, clone. Terminal prompts are disabled so a missing credential fails instead of hanging.
+- Files are written with LF; a `.getman/.gitattributes` (`* text eol=lf`) is created with the workspace.

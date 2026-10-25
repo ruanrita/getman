@@ -111,7 +111,8 @@ export interface Member {
 export type StorageConfig =
   | { kind: "local" }
   | { kind: "server"; url: string }
-  | { kind: "git"; remote: string; branch: string; path: string };
+  /** A folder inside a Git working copy; files live in `<dir>/.getman/`. */
+  | { kind: "git"; dir: string };
 
 export interface Workspace {
   id: string;

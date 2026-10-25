@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "../lib/store";
+import { cloneRepository, gitAvailable, openGitFolder, pickFolder } from "../lib/gitSync";
 import { apiFor, createServerWorkspace, loadServerWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
 import { Modal } from "./Modal";
@@ -9,12 +10,19 @@ export function NewWorkspaceModal({ onClose, onConnect }: { onClose(): void; onC
   const [name, setName] = useState("");
   const [where, setWhere] = useState<string>("local");
   const [busy, setBusy] = useState(false);
+  const [git, setGit] = useState<{ mode: "folder" | "clone"; dir?: string; url: string; parent?: string }>({ mode: "folder", url: "" });
+  const isGit = where === "git";
+  const gitReady = git.mode === "folder" ? Boolean(git.dir) : Boolean(git.url.trim() && git.parent);
 
   const create = async () => {
-    if (!name.trim()) return;
+    if (isGit ? !gitReady : !name.trim()) return;
     setBusy(true);
     try {
-      if (where === "local") useStore.getState().addWorkspace(name.trim());
+      if (isGit) {
+        // An existing .getman folder is opened as is; the name is only used to create a new one.
+        if (git.mode === "folder") await openGitFolder(git.dir!, name.trim() || undefined);
+        else await cloneRepository(git.url, git.parent!, name.trim() || undefined);
+      } else if (where === "local") useStore.getState().addWorkspace(name.trim());
       else await createServerWorkspace(where, name.trim());
       onClose();
     } catch (e) {
@@ -31,7 +39,7 @@ export function NewWorkspaceModal({ onClose, onConnect }: { onClose(): void; onC
       footer={
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!name.trim() || busy} onClick={create}>Create</button>
+          <button className="btn primary" disabled={(isGit ? !gitReady : !name.trim()) || busy} onClick={create}>{busy ? "Working…" : isGit ? "Open" : "Create"}</button>
         </>
       }
     >
@@ -51,7 +59,40 @@ export function NewWorkspaceModal({ onClose, onConnect }: { onClose(): void; onC
               <span className="muted">as {s.user?.email}</span>
             </label>
           ))}
-          {where !== "local" && <RestoreFromFile url={where} onDone={onClose} />}
+          <label className="row" style={{ gap: 6, padding: "3px 0" }} title={gitAvailable() ? "" : "Available in the desktop app"}>
+            <input type="radio" checked={isGit} disabled={!gitAvailable()} onChange={() => setWhere("git")} /> In a Git repository
+            <span className="muted">{gitAvailable() ? "files in .getman/, commit with your team" : "(desktop app only)"}</span>
+          </label>
+          {isGit && (
+            <div className="section backup-target" style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              <div className="row" style={{ gap: 16 }}>
+                <label className="row" style={{ gap: 4 }}>
+                  <input type="radio" checked={git.mode === "folder"} onChange={() => setGit({ ...git, mode: "folder" })} /> Folder on this computer
+                </label>
+                <label className="row" style={{ gap: 4 }}>
+                  <input type="radio" checked={git.mode === "clone"} onChange={() => setGit({ ...git, mode: "clone" })} /> Clone a repository
+                </label>
+              </div>
+              {git.mode === "folder" ? (
+                <div className="row">
+                  <button className="btn" onClick={async () => { const dir = await pickFolder("Choose your repository folder"); if (dir) setGit({ ...git, dir }); }}>Choose folder…</button>
+                  <span className="mono muted" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{git.dir ?? "nothing selected"}</span>
+                </div>
+              ) : (
+                <>
+                  <input className="input mono" placeholder="git@github.com:team/api.git or https://bitbucket.org/team/api.git" value={git.url} onChange={(e) => setGit({ ...git, url: e.target.value })} />
+                  <div className="row">
+                    <button className="btn" onClick={async () => { const parent = await pickFolder("Clone into which folder?"); if (parent) setGit({ ...git, parent }); }}>Clone into…</button>
+                    <span className="mono muted">{git.parent ?? "choose a parent folder"}</span>
+                  </div>
+                </>
+              )}
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                If the folder already has a <code>.getman/</code> workspace it is opened; otherwise one is created with the name above. Uses the git installed on this computer and its credentials.
+              </p>
+            </div>
+          )}
+          {where.startsWith("http") && <RestoreFromFile url={where} onDone={onClose} />}
           {servers.length === 0 && (
             <p className="muted">
               To share with a team,{" "}

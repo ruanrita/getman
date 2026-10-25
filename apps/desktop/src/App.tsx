@@ -3,6 +3,7 @@ import { findItemPath } from "@getman/core";
 import { AccountModal } from "./components/AccountModal";
 import { AiPanel } from "./components/AiPanel";
 import { CollectionEditor } from "./components/CollectionEditor";
+import { GitModal } from "./components/GitModal";
 import { NewWorkspaceModal } from "./components/NewWorkspaceModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
 import { EnvironmentsModal } from "./components/EnvironmentsModal";
@@ -12,6 +13,7 @@ import { RequestEditor } from "./components/RequestEditor";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar, type ModalName } from "./components/TopBar";
 import { useActiveWorkspace, useStore } from "./lib/store";
+import { startGitSync } from "./lib/gitSync";
 import { startSync } from "./lib/sync";
 import { useToast } from "./lib/ui";
 
@@ -30,7 +32,9 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (hydrated) startSync();
+    if (!hydrated) return;
+    startSync();
+    startGitSync();
   }, [hydrated]);
 
   if (!hydrated) return null;
@@ -61,6 +65,7 @@ export function App() {
       {modal === "import" && <ImportModal onClose={() => setModal(null)} />}
       {modal === "export" && <ExportModal onClose={() => setModal(null)} />}
       {modal === "account" && <AccountModal onClose={() => setModal(null)} />}
+      {modal === "git" && <GitModal onClose={() => setModal(null)} />}
       {modal === "workspace" && <WorkspaceModal onClose={() => setModal(null)} />}
       {modal === "newWorkspace" && <NewWorkspaceModal onClose={() => setModal(null)} onConnect={() => setModal("account")} />}
       {toastMessage && <div className="toast" role="status">{toastMessage}</div>}

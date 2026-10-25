@@ -6,6 +6,7 @@ import { importOpenApi, isOpenApi } from "./openapi";
 import { importPostmanCollection, importPostmanEnvironment, isPostmanCollection, isPostmanEnvironment } from "./postman";
 
 export * from "./curl";
+export * from "./folder";
 export * from "./getman";
 export * from "./openapi";
 export * from "./postman";
