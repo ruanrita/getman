@@ -13,6 +13,10 @@ tags: [security, 2fa, totp, secrets, sandbox, authentication, sessions, password
 - Login does the same hashing work whether or not the email exists, so response time does not reveal accounts.
 - Login, register and 2FA endpoints are **rate limited** per IP (`AUTH_RATE_LIMIT`, default 10/min).
 - Changing the password signs out every other session.
+- **Email codes** (verification: 6 digits, reset: 8 digits) are stored as SHA-256 bound to address and purpose, expire after 30 minutes, allow 5 attempts, are single-use, and at most one is sent per minute per address.
+- **Password reset** answers identically whether or not the account exists, revokes every session, and does not turn off 2FA.
+- **Invitations**: 60-bit codes stored hashed, valid 7 days, accepted only by the invited address (code + matching email, or a verified email). Resending replaces the code.
+- Operators without SMTP reset passwords with `node dist/admin.js reset-password <email>` (temporary password, all sessions revoked).
 
 ## Two-factor authentication
 - **TOTP** (RFC 6238; SHA-1, 6 digits, 30 s; ±1 step tolerance). Works with any authenticator app.
@@ -60,5 +64,4 @@ Any user can create a workspace and become its owner, so workspace settings must
 
 ## Planned
 - Session tokens and personal AI keys in the **OS keychain** (today: app storage).
-- Email verification, password reset and email invitations (needs SMTP).
 - OIDC/SSO login, WebAuthn/passkeys as second factor.

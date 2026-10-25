@@ -17,6 +17,11 @@ export interface Config {
    * them, so this blocks using the server to reach internal services (SSRF).
    */
   allowPrivateNetworks: boolean;
+  /** smtp(s)://user:pass@host:port. Undefined disables email (invites return a code instead). */
+  smtpUrl?: string;
+  mailFrom: string;
+  /** Address people use in Getman to reach this server, shown in invitation emails. */
+  publicUrl?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -45,5 +50,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authRateLimit: Number(env.AUTH_RATE_LIMIT ?? 10),
     backupDir: env.GETMAN_BACKUP_DIR || undefined,
     allowPrivateNetworks: env.GETMAN_ALLOW_PRIVATE_NETWORKS === "true",
+    smtpUrl: env.SMTP_URL || undefined,
+    mailFrom: env.MAIL_FROM || "Getman <getman@localhost>",
+    publicUrl: env.PUBLIC_URL?.replace(/\/+$/, "") || undefined,
   };
 }

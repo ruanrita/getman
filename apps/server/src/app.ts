@@ -10,18 +10,23 @@ import { HttpError } from "./errors";
 import { Hub } from "./realtime";
 import { aiRoutes } from "./routes/ai";
 import { authRoutes } from "./routes/auth";
+import { emailRoutes } from "./routes/email";
+import { emailService } from "./emailService";
+import { createMailer, type Mailer } from "./mail";
 import { backupRoutes } from "./routes/backups";
 import { workspaceRoutes } from "./routes/workspaces";
 
 export const API_VERSION = 1;
 
-export async function buildApp(sql: Sql, config: Config, opts: { logger?: boolean } = {}) {
+export async function buildApp(sql: Sql, config: Config, opts: { logger?: boolean; mailer?: Mailer | null } = {}) {
   const app = Fastify({
     logger: opts.logger ?? false,
     trustProxy: config.trustProxy,
     bodyLimit: 5 * 1024 * 1024,
   });
   const hub = new Hub();
+  // `mailer: null` forces email off (tests); undefined builds one from SMTP_URL.
+  const mail = emailService(sql, opts.mailer === null ? undefined : (opts.mailer ?? createMailer(config)), hub);
 
   await app.register(cors, {
     origin: config.corsOrigins,
@@ -54,10 +59,11 @@ export async function buildApp(sql: Sql, config: Config, opts: { logger?: boolea
   });
 
   /** Lets the desktop app check it is talking to a Getman server before signing in. */
-  app.get("/health", async () => ({ ok: true, name: "getman-server", apiVersion: API_VERSION }));
+  app.get("/health", async () => ({ ok: true, name: "getman-server", apiVersion: API_VERSION, features: { email: mail.enabled } }));
 
-  authRoutes(app, sql, config, hub);
-  const { access } = workspaceRoutes(app, sql, config, hub);
+  authRoutes(app, sql, config, hub, mail);
+  emailRoutes(app, sql, config, hub, mail);
+  const { access } = workspaceRoutes(app, sql, config, hub, mail);
   backupRoutes(app, sql, config, access);
   aiRoutes(app, sql, config, access);
 

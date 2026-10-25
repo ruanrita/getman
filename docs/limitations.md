@@ -10,8 +10,9 @@ tags: [limitations, faq, support]
 Keep this page current: when a limitation is fixed, delete its entry in the same change.
 
 ## Collaboration and accounts
-- **Adding members needs an existing account.** There are no email invitations yet; ask the person to create an account on the server first.
-- **No password reset by email.** An admin with database access must reset it. No SSO/OIDC or passkeys yet.
+- **No SSO/OIDC login or passkeys yet.**
+- **Without SMTP on the server** there is no email verification or self-service password reset (the operator resets passwords with `node dist/admin.js reset-password <email>`); invitations still work with the code shown to the admin.
+- Invitations go to one email address; there are no shareable "anyone with the link" invites.
 - **Simultaneous edits to the same collection:** the version saved first wins. The other person's last edit to that collection (up to ~1 second of typing) is replaced and they see a notice. Edits to different collections never conflict.
 - **Offline edits** to server workspaces are kept and pushed when the server is reachable again; if someone changed the same collection meanwhile, the rule above applies.
 - **Session tokens and personal AI keys** are stored in the app's local storage, not yet in the OS keychain.

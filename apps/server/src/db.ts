@@ -157,6 +157,40 @@ const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       create index on ai_usage (workspace_id, created_at desc);
     `,
   },
+  {
+    id: 3,
+    name: "email",
+    sql: `
+      alter table users add column email_verified_at timestamptz;
+
+      -- Short codes sent by email (verify address, reset password). Only hashes are stored.
+      create table email_codes (
+        id uuid primary key default gen_random_uuid(),
+        email text not null,
+        purpose text not null check (purpose in ('verify', 'reset')),
+        code_hash text not null,
+        attempts int not null default 0,
+        expires_at timestamptz not null,
+        used_at timestamptz,
+        created_at timestamptz not null default now()
+      );
+      create index on email_codes (email, purpose, created_at desc);
+
+      create table invites (
+        id uuid primary key default gen_random_uuid(),
+        workspace_id uuid not null references workspaces on delete cascade,
+        email text not null,
+        role text not null check (role in ('admin', 'editor', 'viewer')),
+        code_hash text not null unique,
+        invited_by uuid references users on delete set null,
+        created_at timestamptz not null default now(),
+        expires_at timestamptz not null,
+        accepted_at timestamptz,
+        accepted_by uuid references users on delete set null
+      );
+      create index on invites (email) where accepted_at is null;
+    `,
+  },
 ];
 
 export function connect(url: string): Sql {

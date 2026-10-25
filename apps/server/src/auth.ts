@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   name: string;
   totpEnabled: boolean;
+  emailVerified: boolean;
   sessionId: string;
 }
 
@@ -23,13 +24,23 @@ export interface PublicUser {
   email: string;
   name: string;
   totpEnabled: boolean;
+  emailVerified: boolean;
 }
 
-export const publicUser = (u: { id: string; email: string; name: string; totp_enabled: boolean }): PublicUser => ({
+export interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  totp_enabled: boolean;
+  email_verified_at: Date | null;
+}
+
+export const publicUser = (u: UserRow): PublicUser => ({
   id: u.id,
   email: u.email,
   name: u.name,
   totpEnabled: u.totp_enabled,
+  emailVerified: Boolean(u.email_verified_at),
 });
 
 export async function createSession(sql: Sql, config: Config, userId: string, req: FastifyRequest): Promise<string> {
@@ -44,9 +55,9 @@ export async function createSession(sql: Sql, config: Config, userId: string, re
 /** Resolves a bearer token to a user, extending the session (sliding expiry). */
 export async function userFromToken(sql: Sql, config: Config, token: string): Promise<AuthUser | undefined> {
   const [row] = await sql<
-    { session_id: string; id: string; email: string; name: string; totp_enabled: boolean; last_used_at: Date }[]
+    { session_id: string; id: string; email: string; name: string; totp_enabled: boolean; email_verified_at: Date | null; last_used_at: Date }[]
   >`
-    select s.id as session_id, s.last_used_at, u.id, u.email, u.name, u.totp_enabled
+    select s.id as session_id, s.last_used_at, u.id, u.email, u.name, u.totp_enabled, u.email_verified_at
     from sessions s join users u on u.id = s.user_id
     where s.token_hash = ${sha256(token)} and s.expires_at > now()`;
   if (!row) return undefined;
@@ -56,7 +67,7 @@ export async function userFromToken(sql: Sql, config: Config, token: string): Pr
       update sessions set last_used_at = now(), expires_at = now() + make_interval(days => ${config.sessionTtlDays})
       where id = ${row.session_id}`;
   }
-  return { id: row.id, email: row.email, name: row.name, totpEnabled: row.totp_enabled, sessionId: row.session_id };
+  return { id: row.id, email: row.email, name: row.name, totpEnabled: row.totp_enabled, emailVerified: Boolean(row.email_verified_at), sessionId: row.session_id };
 }
 
 export function bearer(req: FastifyRequest): string | undefined {

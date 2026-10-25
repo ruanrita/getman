@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { can, canChangeRole, type Role } from "@getman/core";
-import { ApiError, type ServerApi } from "../lib/api";
+import { ApiError, type AddMemberResult, type PendingInvite, type ServerApi } from "../lib/api";
 import { useActiveWorkspace, useStore } from "../lib/store";
 import { apiFor, loadServerWorkspace, publishWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
@@ -216,6 +216,28 @@ function Members({ wsId, api }: { wsId: string; api: ServerApi }) {
   const manage = can(meta.role, "members.manage");
   const refresh = () => loadServerWorkspace(api.url, wsId);
   const act = (p: Promise<unknown>, ok?: string) => p.then(refresh).then(() => ok && toast(ok), (e) => toast(errorText(e)));
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  /** The invite just created or resent, with its code (shown once, to share if email is off). */
+  const [created, setCreated] = useState<AddMemberResult>();
+  const loadInvites = () => manage && api.invites(wsId).then((r) => setInvites(r.invites), () => {});
+  useEffect(() => void loadInvites(), [wsId, meta.members.length]);
+
+  const add = async () => {
+    try {
+      const res = await api.addMember(wsId, email, newRole);
+      setEmail("");
+      if (res.invite) {
+        setCreated(res);
+        void loadInvites();
+      } else {
+        setCreated(undefined);
+        await refresh();
+        toast(`${email} added`);
+      }
+    } catch (e) {
+      toast(errorText(e));
+    }
+  };
 
   return (
     <div>
@@ -225,7 +247,7 @@ function Members({ wsId, api }: { wsId: string; api: ServerApi }) {
           style={{ marginBottom: 16 }}
           onSubmit={(e) => {
             e.preventDefault();
-            act(api.addMember(wsId, email, newRole), `${email} added`).then(() => setEmail(""));
+            void add();
           }}
         >
           <input className="input" style={{ flex: 1 }} type="email" placeholder="colleague@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -234,10 +256,57 @@ function Members({ wsId, api }: { wsId: string; api: ServerApi }) {
             <option value="editor">Editor</option>
             <option value="admin">Admin</option>
           </select>
-          <button className="btn primary">Add member</button>
+          <button className="btn primary">Add or invite</button>
         </form>
       )}
-      {manage && <p className="muted" style={{ marginTop: -8 }}>They need an account on this server first.</p>}
+      {manage && !created && <p className="muted" style={{ marginTop: -8 }}>People with an account are added at once; anyone else gets an invitation.</p>}
+      {created?.invite && (
+        <div className="hint" style={{ marginBottom: 16 }}>
+          <strong>{created.invite.email}</strong> has no account yet, so they were invited as {created.invite.role}.{" "}
+          {created.emailSent ? "We emailed them the code below." : "This server cannot send email: share this code with them."} They create an account with that
+          address on <code>{api.url}</code> and verify it (or enter the code under Account → Have an invite code?). Valid for 7 days.
+          <div className="row" style={{ marginTop: 8 }}>
+            <code style={{ fontSize: 15, userSelect: "all" }}>{created.code}</code>
+            <button className="btn" onClick={() => navigator.clipboard.writeText(created.code!).then(() => toast("Copied"))}>
+              Copy
+            </button>
+            <button className="btn ghost" onClick={() => setCreated(undefined)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+      {manage && invites.length > 0 && (
+        <div className="section">
+          <h4>Pending invitations ({invites.length})</h4>
+          <table className="kv">
+            <tbody>
+              {invites.map((inv) => (
+                <tr key={inv.id}>
+                  <td style={{ padding: 6 }}>{inv.email}</td>
+                  <td style={{ padding: 6 }}>{inv.role}</td>
+                  <td className="muted" style={{ padding: 6 }}>expires {new Date(inv.expiresAt).toLocaleDateString()}</td>
+                  <td className="tools" style={{ width: 170 }}>
+                    <button
+                      className="btn"
+                      title="New code; the old one stops working"
+                      onClick={() => api.resendInvite(wsId, inv.id).then((r) => (setCreated(r), void loadInvites()), (e) => toast(errorText(e)))}
+                    >
+                      Resend
+                    </button>{" "}
+                    <button
+                      className="btn danger"
+                      onClick={() => confirm(`Cancel the invitation for ${inv.email}?`) && api.revokeInvite(wsId, inv.id).then(() => void loadInvites(), (e) => toast(errorText(e)))}
+                    >
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <table className="kv">
         <thead>

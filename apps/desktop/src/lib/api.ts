@@ -18,6 +18,24 @@ export interface ServerUser {
   email: string;
   name: string;
   totpEnabled: boolean;
+  emailVerified: boolean;
+}
+
+export interface PendingInvite {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  expiresAt: string;
+  invitedBy?: string;
+}
+
+export interface AddMemberResult {
+  members: ServerMember[];
+  /** Present when the email had no account and an invitation was created instead. */
+  invite?: PendingInvite;
+  code?: string;
+  emailSent?: boolean;
 }
 
 export interface ServerMember {
@@ -123,10 +141,16 @@ export class ServerApi {
     return data as T;
   }
 
-  health = () => this.request<{ ok: boolean; name: string; apiVersion: number }>("GET", "/health");
+  health = () => this.request<{ ok: boolean; name: string; apiVersion: number; features?: { email: boolean } }>("GET", "/health");
 
   /* auth & account */
-  register = (body: { email: string; password: string; name: string }) => this.request<{ token: string; user: ServerUser }>("POST", "/auth/register", body);
+  register = (body: { email: string; password: string; name: string }) =>
+    this.request<{ token: string; user: ServerUser; verificationSent?: boolean }>("POST", "/auth/register", body);
+  forgotPassword = (email: string) => this.request<{ ok: true; emailEnabled: boolean }>("POST", "/auth/password/forgot", { email });
+  resetPassword = (email: string, code: string, newPassword: string) => this.request("POST", "/auth/password/reset", { email, code, newPassword });
+  sendVerificationCode = () => this.request("POST", "/me/email/send-code");
+  verifyEmail = (code: string) => this.request<{ ok: true; joined: { id: string; name: string; role: Role }[] }>("POST", "/me/email/verify", { code });
+  acceptInvite = (code: string) => this.request<{ joined: { id: string; name: string; role: Role }[] }>("POST", "/invites/accept", { code });
   login = (email: string, password: string) => this.request<LoginResult>("POST", "/auth/login", { email, password });
   login2fa = (mfaToken: string, code: string) => this.request<{ token: string; user: ServerUser }>("POST", "/auth/login/2fa", { mfaToken, code });
   logout = () => this.request<{ ok: true }>("POST", "/auth/logout");
@@ -152,7 +176,10 @@ export class ServerApi {
       "GET",
       `/workspaces/${id}/audit`,
     );
-  addMember = (id: string, email: string, role: Role) => this.request<{ members: ServerMember[] }>("POST", `/workspaces/${id}/members`, { email, role });
+  addMember = (id: string, email: string, role: Role) => this.request<AddMemberResult>("POST", `/workspaces/${id}/members`, { email, role });
+  invites = (id: string) => this.request<{ invites: PendingInvite[] }>("GET", `/workspaces/${id}/invites`);
+  resendInvite = (id: string, iid: string) => this.request<AddMemberResult>("POST", `/workspaces/${id}/invites/${iid}/resend`);
+  revokeInvite = (id: string, iid: string) => this.request("DELETE", `/workspaces/${id}/invites/${iid}`);
   changeRole = (id: string, userId: string, role: Role) => this.request<{ members: ServerMember[] }>("PATCH", `/workspaces/${id}/members/${userId}`, { role });
   removeMember = (id: string, userId: string) => this.request("DELETE", `/workspaces/${id}/members/${userId}`);
   transfer = (id: string, userId: string) => this.request<{ members: ServerMember[] }>("POST", `/workspaces/${id}/transfer`, { userId });

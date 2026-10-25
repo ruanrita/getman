@@ -5,6 +5,7 @@ import { Secret, TOTP } from "otpauth";
 import { buildApp } from "../src/app";
 import type { Config } from "../src/config";
 import { connect, migrate, type Sql } from "../src/db";
+import type { Mail } from "../src/mail";
 
 export const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgres://getman:getman@localhost:55432/getman_test";
 
@@ -20,18 +21,31 @@ export const config: Config = {
   // Tests talk to local Postgres / S3 / fake AI servers.
   allowPrivateNetworks: true,
   backupDir: join(tmpdir(), `getman-test-backups-${process.pid}`),
+  mailFrom: "Getman Test <test@getman.local>",
 };
 
-export async function setup(overrides: Partial<Config> = {}) {
+/** Emails the server sent during the tests (in-memory mailer). */
+export const outbox: Mail[] = [];
+
+/** The code in the newest email to `to` (6-8 digits, or an invite code). */
+export function lastCode(to: string): string {
+  const mail = [...outbox].reverse().find((m) => m.to === to);
+  const code = mail?.text.match(/^\s{4}(\S+)$/m)?.[1];
+  if (!code) throw new Error(`no code emailed to ${to}`);
+  return code;
+}
+
+export async function setup(overrides: Partial<Config> = {}, opts: { email?: boolean } = {}) {
   const sql = connect(TEST_DB);
   await sql.unsafe("drop schema public cascade; create schema public;");
   await migrate(sql);
-  const { app, hub } = await buildApp(sql, { ...config, ...overrides });
+  const mailer = opts.email === false ? null : { send: async (m: Mail) => void outbox.push(m) };
+  const { app, hub } = await buildApp(sql, { ...config, ...overrides }, { mailer });
   return { sql, app, hub };
 }
 
 export async function reset(sql: Sql) {
-  await sql`truncate users, workspaces, audit_log restart identity cascade`;
+  await sql`truncate users, workspaces, audit_log, email_codes restart identity cascade`;
 }
 
 type App = Awaited<ReturnType<typeof setup>>["app"];

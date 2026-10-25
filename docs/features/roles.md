@@ -35,6 +35,10 @@ Each account owns the workspaces it creates and can grant access, including admi
 
 The owner picks another member. That member becomes owner and the previous owner becomes admin. There is always exactly one owner.
 
+## Inviting
+
+Add people by email in **Members → Add or invite**. People without an account get an invitation (email + code, 7 days); see [accounts and invitations](accounts.md).
+
 ## Leaving
 
 Any member except the owner can leave (**General → Leave workspace**). The owner must transfer ownership first.

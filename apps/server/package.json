@@ -19,11 +19,13 @@
     "@getman/core": "workspace:*",
     "@node-rs/argon2": "^2.2.2",
     "fastify": "^5.12.7",
+    "nodemailer": "^10.2.1",
     "otpauth": "^9.5.2",
     "postgres": "^3.4.9",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
     "@types/ws": "^8.18.2",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",

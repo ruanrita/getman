@@ -93,7 +93,6 @@ describe("workspaces", () => {
 describe("members", () => {
   it("adds existing accounts only, once", async () => {
     const { owner, wsId } = await team();
-    expect((await owner.post(`/workspaces/${wsId}/members`, { email: "nobody@example.com", role: "editor" })).status).toBe(404);
     expect((await owner.post(`/workspaces/${wsId}/members`, { email: "editor@example.com", role: "viewer" })).body.error.code).toBe("already_member");
     expect((await owner.post(`/workspaces/${wsId}/members`, { email: "outsider@example.com", role: "owner" })).body.error.code).toBe("validation");
   });

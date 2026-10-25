@@ -51,6 +51,22 @@ Send `Authorization: Bearer <token>`. Tokens are opaque random strings returned 
 | POST | `/me/2fa/disable` | `{ password, code }` |
 | POST | `/me/2fa/recovery-codes` | `{ code }` → new set, old ones invalidated |
 
+### Email, password reset and invitations
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/auth/password/forgot` | `{ email }` → always `{ ok, emailEnabled }`; emails an 8-digit code if the account exists |
+| POST | `/auth/password/reset` | `{ email, code, newPassword }`; revokes all sessions, marks the email verified |
+| POST | `/me/email/send-code` | 6-digit verification code; `cooldown` (429) within a minute |
+| POST | `/me/email/verify` | `{ code }` → `{ joined: [{ id, name, role }] }` (pending invitations accepted) |
+| POST | `/invites/accept` | `{ code }` → `{ joined }`; the invitation must be for the user's email |
+| GET | `/workspaces/:id/invites` | `members.manage`: pending invitations |
+| POST | `/workspaces/:id/invites/:iid/resend` | new code (+ email) → `{ invite, code, emailSent }` |
+| DELETE | `/workspaces/:id/invites/:iid` | cancel |
+
+`POST /workspaces/:id/members` with an email that has no account creates an invitation and returns `{ members, invite, code, emailSent }`. `/health` reports `features.email`. Register returns `verificationSent`.
+
+Error codes: `invalid_code`, `cooldown`, `already_verified`, `email_disabled`, `email_failed`, `invite_email_mismatch`.
+
 ### Workspaces and members
 | Method | Path | Permission |
 |---|---|---|

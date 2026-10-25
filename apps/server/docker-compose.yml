@@ -42,6 +42,15 @@ services:
     volumes:
       - getman-s3:/data
 
+  # Optional local mail catcher for invitations / password reset during development:
+  #   docker compose --profile mail up -d mailpit   -> SMTP localhost:51025, inbox http://localhost:58025
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: ["mail"]
+    ports:
+      - "51025:1025"
+      - "58025:8025"
+
 volumes:
   getman-db:
   getman-s3:

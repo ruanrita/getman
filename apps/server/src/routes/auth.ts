@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Secret, TOTP } from "otpauth";
 import { z } from "zod";
-import { createSession, publicUser, requireAuth } from "../auth";
+import { createSession, publicUser, requireAuth, type UserRow } from "../auth";
 import type { Config } from "../config";
 import {
   decrypt,
@@ -16,6 +16,7 @@ import {
 } from "../crypto";
 import type { Sql } from "../db";
 import { badRequest, conflict, notFound, unauthorized } from "../errors";
+import type { EmailService } from "../emailService";
 import type { Hub } from "../realtime";
 
 const email = z.string().trim().toLowerCase().email().max(254);
@@ -29,7 +30,7 @@ function totpFor(secretBase32: string, label: string) {
   return new TOTP({ issuer: "Getman", label, algorithm: "SHA1", digits: 6, period: 30, secret: Secret.fromBase32(secretBase32) });
 }
 
-export function authRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: Hub) {
+export function authRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: Hub, mail: EmailService) {
   const auth = requireAuth(sql, config);
   const limited = { config: { rateLimit: { max: config.authRateLimit, timeWindow: "1 minute" } } };
 
@@ -62,16 +63,18 @@ export function authRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: 
     const body = z.object({ email, password, name: z.string().trim().min(1).max(100) }).parse(req.body);
     const [existing] = await sql`select 1 from users where email = ${body.email}`;
     if (existing) throw conflict("An account with this email already exists", "email_taken");
-    const [user] = await sql<{ id: string; email: string; name: string; totp_enabled: boolean }[]>`
+    const [user] = await sql<UserRow[]>`
       insert into users (email, name, password_hash) values (${body.email}, ${body.name}, ${await hashPassword(body.password)})
-      returning id, email, name, totp_enabled`;
-    return { token: await createSession(sql, config, user!.id, req), user: publicUser(user!) };
+      returning id, email, name, totp_enabled, email_verified_at`;
+    // Verification email is best effort: the account works without it.
+    if (mail.enabled) await mail.issueCode(body.email, "verify").catch((e) => req.log.warn({ err: e }, "verification email failed"));
+    return { token: await createSession(sql, config, user!.id, req), user: publicUser(user!), verificationSent: mail.enabled };
   });
 
   app.post("/auth/login", limited, async (req) => {
     const body = z.object({ email, password: z.string().max(256) }).parse(req.body);
-    const [user] = await sql<{ id: string; email: string; name: string; totp_enabled: boolean; password_hash: string }[]>`
-      select id, email, name, totp_enabled, password_hash from users where email = ${body.email}`;
+    const [user] = await sql<(UserRow & { password_hash: string })[]>`
+      select id, email, name, totp_enabled, email_verified_at, password_hash from users where email = ${body.email}`;
     // Same work whether or not the email exists, so response time does not reveal accounts.
     const ok = await verifyPassword(user?.password_hash ?? (await dummyPasswordHash()), body.password);
     if (!user || !ok) throw unauthorized("Wrong email or password", "invalid_credentials");
@@ -100,8 +103,8 @@ export function authRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: 
     if (!(await verifySecondFactor(challenge.user_id, body.code))) throw unauthorized("Wrong code", "invalid_code");
 
     await sql`delete from mfa_challenges where id = ${challenge.id}`;
-    const [user] = await sql<{ id: string; email: string; name: string; totp_enabled: boolean }[]>`
-      select id, email, name, totp_enabled from users where id = ${challenge.user_id}`;
+    const [user] = await sql<UserRow[]>`
+      select id, email, name, totp_enabled, email_verified_at from users where id = ${challenge.user_id}`;
     return { token: await createSession(sql, config, user!.id, req), user: publicUser(user!) };
   });
 
@@ -117,13 +120,13 @@ export function authRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: 
     const u = req.user!;
     const [row] = await sql<{ remaining: number }[]>`
       select count(*)::int as remaining from recovery_codes where user_id = ${u.id} and used_at is null`;
-    return { user: { id: u.id, email: u.email, name: u.name, totpEnabled: u.totpEnabled }, recoveryCodesRemaining: row?.remaining ?? 0 };
+    return { user: { id: u.id, email: u.email, name: u.name, totpEnabled: u.totpEnabled, emailVerified: u.emailVerified }, recoveryCodesRemaining: row?.remaining ?? 0 };
   });
 
   app.patch("/me", { preHandler: auth }, async (req) => {
     const body = z.object({ name: z.string().trim().min(1).max(100) }).parse(req.body);
-    const [user] = await sql<{ id: string; email: string; name: string; totp_enabled: boolean }[]>`
-      update users set name = ${body.name} where id = ${req.user!.id} returning id, email, name, totp_enabled`;
+    const [user] = await sql<UserRow[]>`
+      update users set name = ${body.name} where id = ${req.user!.id} returning id, email, name, totp_enabled, email_verified_at`;
     return { user: publicUser(user!) };
   });
 

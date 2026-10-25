@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { ApiError, normalizeServerUrl, ServerApi } from "../lib/api";
 import { useStore, type ServerAccount } from "../lib/store";
-import { apiFor, signedIn, signOut } from "../lib/sync";
+import { apiFor, signedIn, signOut, syncAccount } from "../lib/sync";
 import { toast } from "../lib/ui";
 import { Modal } from "./Modal";
 
@@ -48,7 +48,8 @@ function errorText(e: unknown) {
 }
 
 function SignIn({ initialUrl = "http://localhost:8787", initialEmail = "", onDone }: { initialUrl?: string; initialEmail?: string; onDone(url: string): void }) {
-  const [mode, setMode] = useState<"signin" | "register">("signin");
+  const [mode, setMode] = useState<"signin" | "register" | "forgot">("signin");
+  const [notice, setNotice] = useState<string>();
   const [url, setUrl] = useState(initialUrl);
   const [email, setEmail] = useState(initialEmail);
   const [name, setName] = useState("");
@@ -83,6 +84,7 @@ function SignIn({ initialUrl = "http://localhost:8787", initialEmail = "", onDon
       } else if (mode === "register") {
         const res = await api.register({ email, password, name });
         await signedIn(base, res.token, res.user);
+        if (res.verificationSent) toast("Account created. We emailed you a code to verify your address (Account → Verify email).");
       } else {
         const res = await api.login(email, password);
         if ("mfaRequired" in res) {
@@ -94,6 +96,20 @@ function SignIn({ initialUrl = "http://localhost:8787", initialEmail = "", onDon
       toast("Signed in");
       onDone(base);
     });
+
+  if (mode === "forgot") {
+    return (
+      <ForgotPassword
+        url={url}
+        initialEmail={email}
+        onDone={(msg) => {
+          setMode("signin");
+          setPassword("");
+          setNotice(msg);
+        }}
+      />
+    );
+  }
 
   return (
     <form
@@ -141,8 +157,14 @@ function SignIn({ initialUrl = "http://localhost:8787", initialEmail = "", onDon
             />
             {mode === "register" && <span className="muted" style={{ fontSize: 12 }}>At least 10 characters.</span>}
           </label>
+          {mode === "signin" && (
+            <button type="button" className="btn ghost" style={{ justifySelf: "start", paddingLeft: 0, color: "var(--primary-strong)" }} onClick={() => (setMode("forgot"), setError(undefined))}>
+              Forgot password?
+            </button>
+          )}
         </>
       )}
+      {notice && !error && <p className="hint" style={{ margin: 0 }}>{notice}</p>}
       {error && <p className="hint warn" style={{ margin: 0 }}>{error}</p>}
       <div className="row">
         <button className="btn primary" disabled={busy}>
@@ -155,6 +177,150 @@ function SignIn({ initialUrl = "http://localhost:8787", initialEmail = "", onDon
         )}
       </div>
     </form>
+  );
+}
+
+/** Two steps: email a code, then code + new password. Works only when the server can send email. */
+function ForgotPassword({ url, initialEmail, onDone }: { url: string; initialEmail: string; onDone(message: string): void }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [step, setStep] = useState<"email" | "code" | "unavailable">("email");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const api = new ServerApi(normalizeServerUrl(url));
+
+  const run = (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(undefined);
+    return fn()
+      .catch((e) => setError(errorText(e)))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <form
+      style={{ display: "grid", gap: 12, maxWidth: 420 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (step === "email") void run(async () => setStep((await api.forgotPassword(email)).emailEnabled ? "code" : "unavailable"));
+        else if (step === "code")
+          void run(async () => {
+            await api.resetPassword(email, code, password);
+            onDone("Password changed. Sign in with the new password; other devices were signed out.");
+          });
+      }}
+    >
+      <h4 style={{ margin: 0 }}>Reset your password</h4>
+      <span className="muted mono" style={{ fontSize: 12 }}>{normalizeServerUrl(url)}</span>
+      {step === "email" && (
+        <>
+          <label>
+            Email of your account
+            <input className="input" style={{ width: "100%" }} type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <span className="muted" style={{ fontSize: 12 }}>If an account uses this address, we email it a code.</span>
+        </>
+      )}
+      {step === "code" && (
+        <>
+          <p className="hint" style={{ margin: 0 }}>Check your inbox (and spam folder) for an 8-digit code. It expires in 30 minutes.</p>
+          <input className="input mono" autoFocus autoComplete="one-time-code" placeholder="12345678" value={code} onChange={(e) => setCode(e.target.value)} />
+          <label>
+            New password
+            <input className="input" style={{ width: "100%" }} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <span className="muted" style={{ fontSize: 12 }}>At least 10 characters.</span>
+          </label>
+        </>
+      )}
+      {step === "unavailable" && (
+        <p className="hint warn" style={{ margin: 0 }}>
+          This server cannot send email. Ask its administrator to reset your password (command <code>node dist/admin.js reset-password {email || "<email>"}</code>).
+        </p>
+      )}
+      {error && <p className="hint warn" style={{ margin: 0 }}>{error}</p>}
+      <div className="row">
+        {step !== "unavailable" && (
+          <button className="btn primary" disabled={busy || !email || (step === "code" && (!code || password.length < 10))}>
+            {busy ? "Please wait…" : step === "email" ? "Email me a code" : "Set new password"}
+          </button>
+        )}
+        <button type="button" className="btn ghost" onClick={() => onDone("")}>
+          Back to sign in
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Shown until the address is verified; verifying also joins pending invitations. */
+function VerifyEmail({ api, account }: { api: ServerApi; account: ServerAccount }) {
+  const upsertServer = useStore((s) => s.upsertServer);
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
+  if (account.user!.emailVerified) return null;
+
+  return (
+    <div className="section backup-target" style={{ display: "grid", gap: 8 }}>
+      <strong>Verify your email</strong>
+      <span className="muted">Verifying proves the address is yours and adds you to workspaces you were invited to.</span>
+      <div className="row">
+        <input className="input mono" style={{ width: 140 }} placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" />
+        <button
+          className="btn primary"
+          disabled={!code}
+          onClick={() =>
+            api.verifyEmail(code).then(
+              async (r) => {
+                upsertServer({ ...account, user: { ...account.user!, emailVerified: true } });
+                if (r.joined.length) await syncAccount(account.url);
+                toast(r.joined.length ? `Email verified. You joined: ${r.joined.map((j) => j.name).join(", ")}` : "Email verified");
+              },
+              (e) => setMsg({ ok: false, text: errorText(e) }),
+            )
+          }
+        >
+          Verify
+        </button>
+        <button className="btn" onClick={() => api.sendVerificationCode().then(() => setMsg({ ok: true, text: "Code sent. Check your inbox." }), (e) => setMsg({ ok: false, text: errorText(e) }))}>
+          Send me a code
+        </button>
+      </div>
+      {msg && <p className={`hint ${msg.ok ? "" : "warn"}`} style={{ margin: 0 }}>{msg.text}</p>}
+    </div>
+  );
+}
+
+function InviteCode({ api, account }: { api: ServerApi; account: ServerAccount }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string>();
+  return (
+    <div className="section">
+      <h4>Have an invite code?</h4>
+      <div className="row">
+        <input className="input mono" style={{ width: 200 }} placeholder="xxxx-xxxx-xxxx" value={code} onChange={(e) => setCode(e.target.value)} />
+        <button
+          className="btn"
+          disabled={code.trim().length < 8}
+          onClick={() =>
+            api.acceptInvite(code).then(
+              async (r) => {
+                setCode("");
+                setError(undefined);
+                await syncAccount(account.url);
+                const joined = r.joined[0];
+                if (joined) useStore.getState().setActiveWorkspace(joined.id);
+                toast(`You joined ${joined?.name} as ${joined?.role}`);
+              },
+              (e) => setError(errorText(e)),
+            )
+          }
+        >
+          Join workspace
+        </button>
+      </div>
+      {error && <p className="hint warn" style={{ marginTop: 8 }}>{error}</p>}
+    </div>
   );
 }
 
@@ -180,6 +346,8 @@ function AccountPanel({ account }: { account: ServerAccount }) {
           Forget
         </button>
       </div>
+      <VerifyEmail api={api} account={account} />
+      <InviteCode api={api} account={account} />
       <TwoFactor api={api} account={account} />
       <Sessions api={api} />
       <ChangePassword api={api} />

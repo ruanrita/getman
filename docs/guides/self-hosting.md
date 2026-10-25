@@ -34,8 +34,22 @@ This starts PostgreSQL 17 and the server on port **8787**. Database migrations r
 | `SESSION_TTL_DAYS` | | `30` | Sliding session lifetime. |
 | `TRUST_PROXY` | | `false` | `true` behind nginx/Caddy/Traefik so client IPs and rate limits are correct. |
 | `AUTH_RATE_LIMIT` | | `10` | Login/register/2FA attempts per minute per IP. |
+| `SMTP_URL` | | (unset) | Outgoing email for invitations, verification and password reset, e.g. `smtps://user:pass@smtp.example.com:465`. Unset = no emails (see [accounts](../features/accounts.md)). |
+| `MAIL_FROM` | | `Getman <getman@localhost>` | Sender of those emails. |
+| `PUBLIC_URL` | | request host | The server address users type in Getman; shown in invitation emails. |
 | `GETMAN_BACKUP_DIR` | | (unset) | Enables "server folder" backup targets, written inside this directory. Mount a volume here in Docker. |
 | `GETMAN_ALLOW_PRIVATE_NETWORKS` | | `false` | Lets backup targets and workspace AI base URLs use private/loopback addresses (LAN MinIO, internal Postgres, self-hosted LLM). Leave off on servers open to untrusted users. |
+
+## Administration commands
+
+```bash
+node dist/admin.js reset-password <email>   # prints a temporary password, signs the user out everywhere
+node dist/admin.js verify-email <email>     # marks the address verified and joins pending invitations
+# Docker:
+docker compose exec server node dist/admin.js reset-password ana@example.com
+```
+
+For development, `docker compose --profile mail up -d mailpit` starts a mail catcher (SMTP `localhost:51025`, inbox http://localhost:58025); set `SMTP_URL=smtp://localhost:51025`.
 
 ## HTTPS
 

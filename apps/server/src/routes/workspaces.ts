@@ -5,6 +5,7 @@ import { requireAuth } from "../auth";
 import type { Config } from "../config";
 import type { Sql } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
+import type { EmailService } from "../emailService";
 import type { Hub } from "../realtime";
 
 const uuid = z.string().uuid();
@@ -31,7 +32,7 @@ interface WsRow {
   role: Role;
 }
 
-export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: Hub) {
+export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: Hub, mail: EmailService) {
   const auth = { preHandler: requireAuth(sql, config) };
 
   /**
@@ -139,12 +140,30 @@ export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, 
     return { members: await members(ws.id) };
   });
 
-  /** Adds an existing account by email. (Email invitations for new users are planned.) */
+  const serverUrl = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host}`;
+
+  /**
+   * Adds a member by email. An existing account is added at once; otherwise an
+   * invitation is created (emailed when SMTP is configured) and its code returned
+   * so the admin can also share it directly.
+   */
   app.post<{ Params: { id: string } }>("/workspaces/:id/members", auth, async (req) => {
     const ws = await access(req, req.params.id, "members.manage");
     const body = z.object({ email: z.string().trim().toLowerCase().email(), role }).parse(req.body);
     const [user] = await sql<{ id: string }[]>`select id from users where email = ${body.email}`;
-    if (!user) throw notFound("No Getman account uses this email on this server. Ask them to sign up first.");
+    if (!user) {
+      const invite = await mail.createInvite({
+        workspaceId: ws.id,
+        workspaceName: ws.name,
+        email: body.email,
+        role: body.role,
+        inviterId: req.user!.id,
+        inviterName: req.user!.name,
+        serverUrl: serverUrl(req),
+      });
+      await audit(ws.id, req.user!.id, "invite.created", { email: body.email, role: body.role, emailed: invite.emailSent });
+      return { members: await members(ws.id), invite: { id: invite.id, email: body.email, role: body.role, expiresAt: invite.expiresAt }, code: invite.code, emailSent: invite.emailSent };
+    }
     const [added] = await sql`
       insert into members (workspace_id, user_id, role) values (${ws.id}, ${user.id}, ${body.role})
       on conflict do nothing returning user_id`;
@@ -153,6 +172,43 @@ export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, 
     hub.publish({ type: "members.updated", workspaceId: ws.id, by: req.user!.id });
     hub.notifyUser(user.id, { type: "workspace.added", workspaceId: ws.id });
     return { members: await members(ws.id) };
+  });
+
+  app.get<{ Params: { id: string } }>("/workspaces/:id/invites", auth, async (req) => {
+    const ws = await access(req, req.params.id, "members.manage");
+    const invites = await sql`
+      select i.id, i.email, i.role, i.created_at as "createdAt", i.expires_at as "expiresAt", u.email as "invitedBy"
+      from invites i left join users u on u.id = i.invited_by
+      where i.workspace_id = ${ws.id} and i.accepted_at is null and i.expires_at > now()
+      order by i.created_at desc`;
+    return { invites };
+  });
+
+  /** New code (old one stops working) and a new email. */
+  app.post<{ Params: { id: string; iid: string } }>("/workspaces/:id/invites/:iid/resend", auth, async (req) => {
+    const ws = await access(req, req.params.id, "members.manage");
+    const [inv] = await sql<{ email: string; role: string }[]>`
+      select email, role from invites where id = ${req.params.iid} and workspace_id = ${ws.id} and accepted_at is null`;
+    if (!inv) throw notFound("Invitation not found");
+    const invite = await mail.createInvite({
+      workspaceId: ws.id,
+      workspaceName: ws.name,
+      email: inv.email,
+      role: inv.role,
+      inviterId: req.user!.id,
+      inviterName: req.user!.name,
+      serverUrl: serverUrl(req),
+    });
+    return { invite: { id: invite.id, email: inv.email, role: inv.role, expiresAt: invite.expiresAt }, code: invite.code, emailSent: invite.emailSent };
+  });
+
+  app.delete<{ Params: { id: string; iid: string } }>("/workspaces/:id/invites/:iid", auth, async (req) => {
+    const ws = await access(req, req.params.id, "members.manage");
+    const [inv] = await sql<{ email: string }[]>`
+      delete from invites where id = ${req.params.iid} and workspace_id = ${ws.id} and accepted_at is null returning email`;
+    if (!inv) throw notFound("Invitation not found");
+    await audit(ws.id, req.user!.id, "invite.revoked", { email: inv.email });
+    return { ok: true };
   });
 
   app.patch<{ Params: { id: string; userId: string } }>("/workspaces/:id/members/:userId", auth, async (req) => {
