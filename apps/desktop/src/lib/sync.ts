@@ -14,7 +14,8 @@
  * See docs/architecture/storage.md.
  */
 import { sanitizeVariables, type Collection, type Environment, type Variable, type Workspace } from "@getman/core";
-import { ApiError, ServerApi, type WorkspaceSnapshot, type WorkspaceSummary } from "./api";
+import { ApiError, ServerApi, type MergeConflict, type WorkspaceSnapshot, type WorkspaceSummary } from "./api";
+import { CONFLICT_BASE, draftKey } from "./drafts";
 import { stable } from "./json";
 import { useStore, type RemoteMeta } from "./store";
 import { toast } from "./ui";
@@ -249,11 +250,59 @@ async function pushOne(wsId: string, key: string, op: Op) {
   if (meta.synced[key] === json) return; // only local values changed
   inflight.set(key, json);
   const base = meta.versions[op.id] ?? 0;
-  const { version } =
+  const res =
     op.kind === "collection"
       ? await api.putCollection(wsId, shareable as Collection, base)
       : await api.putEnvironment(wsId, shareable as Environment, base);
-  record((m) => ({ ...m, versions: { ...m.versions, [op.id]: version }, synced: { ...m.synced, [key]: json } }));
+  if (res.merged) {
+    // Others saved meanwhile: the server merged their changes with ours.
+    if (op.kind === "collection") applyCollection(wsId, res.merged as Collection, res.version);
+    else applyEnvironment(wsId, res.merged as Environment, res.version);
+  } else {
+    record((m) => ({ ...m, versions: { ...m.versions, [op.id]: res.version }, synced: { ...m.synced, [key]: json } }));
+  }
+  if (res.conflicts.length) restoreAsDrafts(wsId, op.kind, shareable, res.conflicts);
+}
+
+/**
+ * Items both sides changed keep the teammate's version on the server; ours
+ * comes back as an unsaved draft so nothing typed is lost. Saving it again
+ * replaces theirs (after the usual confirmation).
+ */
+function restoreAsDrafts(wsId: string, kind: "collection" | "environment", ours: Collection | Environment, conflicts: MergeConflict[]) {
+  const drafts = { ...state().drafts };
+  const names: string[] = [];
+  const findIn = (items: Collection["items"], id: string): Collection["items"][number] | undefined => {
+    for (const i of items) {
+      if (i.id === id) return i;
+      if (i.kind === "folder") {
+        const f = findIn(i.items, id);
+        if (f) return f;
+      }
+    }
+    return undefined;
+  };
+  // Local values from this device go back into drafts too.
+  const ws = findWs(wsId);
+  const local = (vars: Variable[], existing?: Variable[]) => mergeLocal(vars, existing);
+  for (const c of conflicts) {
+    names.push(c.name);
+    if (kind === "collection" && c.kind === "request") {
+      const mine = findIn((ours as Collection).items, c.id);
+      if (mine?.kind !== "request") continue; // we deleted it and they changed it: their version stays
+      drafts[draftKey(wsId, "request", c.id)] = { kind: "request", wsId, collectionId: ours.id, id: c.id, value: mine, base: CONFLICT_BASE };
+    } else if (kind === "collection" && (c.kind === "collection" || c.kind === "variable")) {
+      const { items: _items, ...settings } = ours as Collection;
+      const prev = ws?.collections.find((x) => x.id === ours.id)?.variables;
+      drafts[draftKey(wsId, "collection", ours.id)] = { kind: "collection", wsId, id: ours.id, value: { ...settings, variables: local(settings.variables, prev) }, base: CONFLICT_BASE };
+    } else if (kind === "environment") {
+      const prev = ws?.environments.find((x) => x.id === ours.id)?.variables;
+      const env = ours as Environment;
+      drafts[draftKey(wsId, "environment", env.id)] = { kind: "environment", wsId, id: env.id, value: { ...env, variables: local(env.variables, prev) }, base: CONFLICT_BASE };
+    }
+  }
+  useStore.setState({ drafts });
+  toast(`Someone else saved ${[...new Set(names)].map((n) => `"${n}"`).join(", ")} at the same time. Their version is kept; yours is back as an unsaved draft (●). Open it to compare, then Save or Discard.`);
 }
 
 /** Server copy wins; the user's edit to that item is replaced. */

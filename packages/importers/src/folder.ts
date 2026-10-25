@@ -304,3 +304,34 @@ export function diffFiles(before: Record<string, string>, after: Record<string, 
   for (const path of Object.keys(before)) if (!(path in after)) ops.push({ path, content: null });
   return ops;
 }
+
+/* ---------- readable YAML for comparisons (same shape as the files) ---------- */
+
+/** A request or folder (without children) as YAML. */
+export function itemToYaml(item: Item): string {
+  if (item.kind === "request") {
+    const { id: _id, ...rest } = requestOut(item);
+    return yaml(rest);
+  }
+  return yaml({
+    name: item.name,
+    ...(item.description ? { description: item.description } : {}),
+    ...(item.auth.type !== "inherit" ? { auth: item.auth } : {}),
+    ...(scriptsOut(item.scripts) ? { scripts: scriptsOut(item.scripts) } : {}),
+  });
+}
+
+/** An environment (or globals) as YAML; secret and local values are never shown. */
+export function variablesToYaml(name: string | undefined, vars: Variable[]): string {
+  return yaml({ ...(name !== undefined ? { name } : {}), variables: varsOut(vars) });
+}
+
+export function collectionSettingsToYaml(c: Omit<Collection, "items">): string {
+  return yaml({
+    name: c.name,
+    ...(c.description ? { description: c.description } : {}),
+    ...(c.variables.length ? { variables: varsOut(c.variables) } : {}),
+    auth: c.auth,
+    ...(scriptsOut(c.scripts) ? { scripts: scriptsOut(c.scripts) } : {}),
+  });
+}

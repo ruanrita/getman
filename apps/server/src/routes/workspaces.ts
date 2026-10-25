@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { can, canChangeRole, sanitizeVariables, type Action, type Role, type Variable } from "@getman/core";
+import { can, canChangeRole, sanitizeVariables, type Action, type Collection, type Environment, type Role, type Variable } from "@getman/core";
 import { z } from "zod";
 import { requireAuth } from "../auth";
 import type { Config } from "../config";
+import { contentStore } from "../content";
 import type { Sql } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
 import type { EmailService } from "../emailService";
@@ -34,6 +35,7 @@ interface WsRow {
 
 export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, hub: Hub, mail: EmailService) {
   const auth = { preHandler: requireAuth(sql, config) };
+  const content = contentStore(sql, hub);
 
   /**
    * Loads the workspace for the current user and checks `action`.
@@ -261,38 +263,21 @@ export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, 
   /* ---------- content sync ---------- */
 
   /**
-   * Optimistic concurrency: the client sends the version it last saw.
-   * Mismatch -> 409 with the current server copy; the client keeps the newer one.
-   * baseVersion 0 means "create".
+   * Saves a collection edited from `baseVersion` (0 = new). If others saved
+   * meanwhile, changes are merged per request; items both sides changed keep
+   * the server copy and come back in `conflicts` (see content.ts / merge.ts).
    */
   app.put<{ Params: { id: string; cid: string } }>("/workspaces/:id/collections/:cid", { ...auth, bodyLimit: 20 * 1024 * 1024 }, async (req) => {
     const ws = await access(req, req.params.id, "collections.write");
     const { collection, baseVersion } = collectionBody.parse(req.body);
     if (collection.id !== req.params.cid) throw badRequest("Collection id does not match the URL");
-    const data = { ...collection, variables: clean(collection.variables) };
-
-    const [current] = await sql<{ data: unknown; version: number }[]>`
-      select data, version from collections where workspace_id = ${ws.id} and id = ${collection.id}`;
-    if ((current?.version ?? 0) !== baseVersion) {
-      throw conflict("Someone else changed this collection", "version_conflict", current ? { collection: current.data, version: current.version } : null);
-    }
-    const [saved] = await sql<{ version: number }[]>`
-      insert into collections (workspace_id, id, data, version, updated_by) values (${ws.id}, ${collection.id}, ${sql.json(data as never)}, 1, ${req.user!.id})
-      on conflict (workspace_id, id) do update set data = excluded.data, version = collections.version + 1, updated_at = now(), updated_by = excluded.updated_by
-        where collections.version = ${baseVersion}
-      returning version`;
-    if (!saved) throw conflict("Someone else changed this collection", "version_conflict");
-    if (baseVersion === 0) await audit(ws.id, req.user!.id, "collection.created", { name: collection.name });
-    hub.publish({ type: "collection.put", workspaceId: ws.id, collection: data, version: saved.version, by: req.user!.id });
-    return { version: saved.version };
+    return content.save("collection", ws.id, req.user!.id, collection as unknown as Collection, baseVersion);
   });
 
+  /** Moves the collection to the trash (restorable for 30 days). */
   app.delete<{ Params: { id: string; cid: string } }>("/workspaces/:id/collections/:cid", auth, async (req) => {
     const ws = await access(req, req.params.id, "collections.write");
-    const [row] = await sql<{ name: string }[]>`delete from collections where workspace_id = ${ws.id} and id = ${req.params.cid} returning data->>'name' as name`;
-    if (!row) throw notFound("Collection not found");
-    await audit(ws.id, req.user!.id, "collection.deleted", { name: row.name });
-    hub.publish({ type: "collection.deleted", workspaceId: ws.id, id: req.params.cid, by: req.user!.id });
+    await content.remove("collection", ws.id, req.user!.id, req.params.cid);
     return { ok: true };
   });
 
@@ -300,28 +285,12 @@ export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, 
     const ws = await access(req, req.params.id, "environments.write");
     const { environment, baseVersion } = environmentBody.parse(req.body);
     if (environment.id !== req.params.eid) throw badRequest("Environment id does not match the URL");
-    const data = { ...environment, variables: clean(environment.variables) };
-
-    const [current] = await sql<{ data: unknown; version: number }[]>`
-      select data, version from environments where workspace_id = ${ws.id} and id = ${environment.id}`;
-    if ((current?.version ?? 0) !== baseVersion) {
-      throw conflict("Someone else changed this environment", "version_conflict", current ? { environment: current.data, version: current.version } : null);
-    }
-    const [saved] = await sql<{ version: number }[]>`
-      insert into environments (workspace_id, id, data, version, updated_by) values (${ws.id}, ${environment.id}, ${sql.json(data as never)}, 1, ${req.user!.id})
-      on conflict (workspace_id, id) do update set data = excluded.data, version = environments.version + 1, updated_at = now(), updated_by = excluded.updated_by
-        where environments.version = ${baseVersion}
-      returning version`;
-    if (!saved) throw conflict("Someone else changed this environment", "version_conflict");
-    hub.publish({ type: "environment.put", workspaceId: ws.id, environment: data, version: saved.version, by: req.user!.id });
-    return { version: saved.version };
+    return content.save("environment", ws.id, req.user!.id, environment as unknown as Environment, baseVersion);
   });
 
   app.delete<{ Params: { id: string; eid: string } }>("/workspaces/:id/environments/:eid", auth, async (req) => {
     const ws = await access(req, req.params.id, "environments.write");
-    const [row] = await sql`delete from environments where workspace_id = ${ws.id} and id = ${req.params.eid} returning id`;
-    if (!row) throw notFound("Environment not found");
-    hub.publish({ type: "environment.deleted", workspaceId: ws.id, id: req.params.eid, by: req.user!.id });
+    await content.remove("environment", ws.id, req.user!.id, req.params.eid);
     return { ok: true };
   });
 
@@ -340,6 +309,6 @@ export function workspaceRoutes(app: FastifyInstance, sql: Sql, config: Config, 
     return { version: saved.globals_version };
   });
 
-  /** Lets the realtime endpoint check membership with the same rules. */
-  return { access };
+  /** Shared with the realtime endpoint and the history routes. */
+  return { access, content };
 }

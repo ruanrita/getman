@@ -90,7 +90,19 @@ Error codes: `invalid_code`, `cooldown`, `already_verified`, `email_disabled`, `
 | DELETE | `/workspaces/:id/environments/:eid` | |
 | PUT | `/workspaces/:id/globals` | `{ variables, baseVersion }` |
 
-**Optimistic concurrency.** Each collection, environment and the globals have a `version`. Writes send the version they were based on (`0` = create). If it is not the current one the server answers `409 version_conflict` with the current copy in `details`; the client keeps the server copy and tells the user.
+**Versions and merging.** Each collection, environment and the globals have a `version`. Writes send the version they were based on (`0` = create). Collection and environment saves return `{ version, merged?, conflicts }`: if others saved meanwhile, the server merges per request / folder / setting / variable and returns the stored copy in `merged`; items both sides changed keep the server copy and are listed in `conflicts` (`{ kind, id, name, reason }`). `409 version_conflict` remains for creating an id that exists, a base version no longer in the history, and globals.
+
+### History and trash
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/workspaces/:id/collections/:cid/versions` | newest first, with `savedBy`, `savedAt`, `changes` (added/changed/deleted requests) |
+| GET | `/workspaces/:id/collections/:cid/versions/:v` | that version's collection |
+| POST | `/workspaces/:id/collections/:cid/versions/:v/restore` | `collections.write`; saved as a new version |
+| GET | `/workspaces/:id/collections/:cid/items/:itemId/history` | versions where that request/folder changed, with its content |
+| GET | `/workspaces/:id/environments/:eid/versions` | environment versions |
+| GET | `/workspaces/:id/trash` | deleted items (30 days) |
+| POST | `/workspaces/:id/trash/:tid/restore` | editors |
+| DELETE | `/workspaces/:id/trash/:tid` | admins: delete forever |
 
 **Sanitizing.** The server strips `localValue` and blanks secret values (`sanitizeVariables`) before storing, even if a client sends them.
 

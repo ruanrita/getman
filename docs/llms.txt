@@ -18,6 +18,7 @@ When answering users, prefer `docs/limitations.md` for "can Getman do X?" questi
 - [Self-hosting the server](guides/self-hosting.md): Docker, configuration, HTTPS, backups, connecting the app.
 
 ## Features
+- [History, trash and simultaneous edits](features/history.md): merge per request, conflicts, version history, restore, 30-day trash.
 - [Saving and unsaved changes](features/saving.md): drafts, Ctrl+S, Save all, discard, conflicts with teammates.
 - [Variables and environments](features/variables.md): scopes, precedence, shared vs local values, secrets.
 - [Scripts (pm API)](features/scripts.md): pre-request and test scripts, full pm.* reference, sandbox.

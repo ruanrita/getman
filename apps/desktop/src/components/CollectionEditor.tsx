@@ -2,12 +2,13 @@ import { useState } from "react";
 import { flattenRequests, type Collection } from "@getman/core";
 import { draftKey } from "../lib/drafts";
 import { useStore } from "../lib/store";
+import { CollectionHistory } from "./CollectionHistory";
 import { SaveControls } from "./SaveControls";
 import { AuthEditor } from "./AuthEditor";
 import { ScriptEditor } from "./ScriptEditor";
 import { VariablesTable } from "./VariablesTable";
 
-type Tab = "overview" | "variables" | "auth" | "pre" | "tests";
+type Tab = "overview" | "variables" | "auth" | "pre" | "tests" | "history";
 
 export function CollectionEditor({ collection }: { collection: Collection }) {
   const [tab, setTab] = useState<Tab>("overview");
@@ -18,6 +19,8 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     useStore.getState().editDraft({ kind: "collection", id: collection.id, value: { ...settings, ...patch } });
   };
   const requests = flattenRequests(collection.items).length;
+  const ws = useStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)!);
+  const storage = ws.storage;
 
   return (
     <div className="editor">
@@ -38,6 +41,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             ["auth", "Auth"],
             ["pre", "Pre-request"],
             ["tests", "Tests"],
+            ...(storage.kind === "server" ? ([["history", "History"]] as [Tab, string][]) : []),
           ] as [Tab, string][]
         ).map(([id, label]) => (
           <button key={id} className={`tab ${tab === id ? "active" : ""}`} onClick={() => setTab(id)}>
@@ -84,6 +88,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             <ScriptEditor kind="test" value={collection.scripts.test} onChange={(test) => update({ scripts: { ...collection.scripts, test } })} />
           </>
         )}
+        {tab === "history" && storage.kind === "server" && <CollectionHistory wsId={ws.id} url={storage.url} collectionId={collection.id} />}
       </div>
     </div>
   );

@@ -13,9 +13,14 @@ Keep this page current: when a limitation is fixed, delete its entry in the same
 - **No SSO/OIDC login or passkeys yet.**
 - **Without SMTP on the server** there is no email verification or self-service password reset (the operator resets passwords with `node dist/admin.js reset-password <email>`); invitations still work with the code shown to the admin.
 - Invitations go to one email address; there are no shareable "anyone with the link" invites.
-- **Two people saving the same collection within the same second:** the server keeps one save per collection version; the other save is replaced by the server copy and that person sees a notice (their draft is gone, redo the edit). Saving the same *request* someone else changed while you were editing asks first ([saving](features/saving.md)).
-- **Offline saves** to server workspaces are kept and pushed when the server is reachable again; the rule above applies if someone saved the same collection meanwhile.
-- No side-by-side comparison of your draft and a teammate's version yet.
+- **Folder settings and collection settings** merge as a whole per field; two people changing the *same* field of a folder at the same second keeps the first save without returning the other as a draft (collection settings and requests do come back as drafts).
+- **Globals** are not merged variable by variable: the last save wins, with a notice.
+- **Offline saves** to server workspaces are kept and pushed when the server is reachable again, then merged as usual.
+
+## History and trash
+- Server workspaces only (Git workspaces use Git history; local workspaces have none).
+- The last 200 versions per collection / environment are kept; the trash keeps items 30 days. Use [backups](features/backup.md) for longer retention.
+- Globals have no history or trash.
 - **Session tokens and personal AI keys** are stored in the app's local storage, not yet in the OS keychain.
 - **One server instance only.** Live updates are delivered in-process; running replicas behind a load balancer would miss events.
 - **Signing out removes that server's workspaces from the device** (including local values typed for them).

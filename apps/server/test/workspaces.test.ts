@@ -36,22 +36,21 @@ describe("workspaces", () => {
     const { editor, viewer, wsId } = await team();
     const c = collection();
     expect((await viewer.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: c, baseVersion: 0 })).status).toBe(403);
-    expect((await editor.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: c, baseVersion: 0 })).body).toEqual({ version: 1 });
+    expect((await editor.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: c, baseVersion: 0 })).body).toEqual({ version: 1, conflicts: [] });
     const snapshot = (await viewer.get(`/workspaces/${wsId}`)).body;
     expect(snapshot.collections).toEqual([{ collection: c, version: 1 }]);
     expect(snapshot.workspace.role).toBe("viewer");
     expect((await editor.patch(`/workspaces/${wsId}`, { name: "x" })).status).toBe(403);
   });
 
-  it("detects concurrent edits with versions", async () => {
+  it("reports a concurrent edit of the same setting and keeps the server copy", async () => {
     const { owner, editor, wsId } = await team();
     const c = collection();
     await owner.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: c, baseVersion: 0 });
     expect((await owner.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: { ...c, name: "A" }, baseVersion: 1 })).body.version).toBe(2);
     const stale = await editor.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: { ...c, name: "B" }, baseVersion: 1 });
-    expect(stale.status).toBe(409);
-    expect(stale.body.error.code).toBe("version_conflict");
-    expect(stale.body.error.details).toMatchObject({ version: 2, collection: { name: "A" } });
+    expect(stale.status).toBe(200);
+    expect(stale.body).toMatchObject({ version: 2, merged: { name: "A" }, conflicts: [{ kind: "collection", reason: "both_changed" }] });
     // Creating an id that already exists is also a conflict.
     expect((await editor.put(`/workspaces/${wsId}/collections/${c.id}`, { collection: c, baseVersion: 0 })).status).toBe(409);
   });

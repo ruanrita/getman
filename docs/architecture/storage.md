@@ -26,7 +26,8 @@ Setup: [self-hosting](../guides/self-hosting.md). Protocol: [server API](server-
 **Desktop side** (`apps/desktop/src/lib/sync.ts`):
 - The workspace is cached in the app, so it opens instantly and works offline.
 - Edits are drafts until the user saves ([saving](../features/saving.md)); only saved state is synced. A store subscription detects which collection / environment / globals changed (updates are immutable, so changed objects have new identities) and pushes them after a 600 ms debounce. Changes to local values only are not pushed.
-- Every write carries the version it was based on. On `409 version_conflict` the server copy is applied and the user sees a notice. The unit of conflict is one collection or environment.
+- Every write carries the version it was based on. If others saved meanwhile, the server three-way merges (base = that version from the history) per request, folder, setting and variable (`apps/server/src/merge.ts`), stores the result and returns it with any conflicts. Conflicting items keep the server copy; the client puts its own version back as a draft that always opens the comparison on the next save.
+- Every save is kept in `collection_versions` / `environment_versions` (last 200); deleted collections, environments, requests and folders go to `trash` for 30 days (`apps/server/src/content.ts`).
 - One WebSocket per server receives teammates' changes; events that echo our own writes are recognised and ignored. On reconnect the app reloads the snapshot to catch up.
 - When server data replaces local data, this device's local values are merged back in by variable key.
 - If the server is unreachable, edits are queued and retried every 10 s.

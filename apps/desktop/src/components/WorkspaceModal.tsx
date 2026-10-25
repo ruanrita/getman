@@ -6,6 +6,7 @@ import { apiFor, loadServerWorkspace, publishWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
 import { gitAvailable, moveToGitFolder, pickFolder } from "../lib/gitSync";
 import { BackupsTab } from "./BackupsTab";
+import { TrashTab } from "./TrashTab";
 import { Modal } from "./Modal";
 import { WorkspaceAiTab } from "./WorkspaceAiTab";
 
@@ -24,7 +25,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
   const meta = useStore((s) => s.remote[ws.id]);
   const servers = useStore((s) => s.servers).filter((a) => a.token);
   const { renameWorkspace, removeWorkspace } = useStore.getState();
-  const [tab, setTab] = useState<"general" | "members" | "backups" | "ai" | "audit">("general");
+  const [tab, setTab] = useState<"general" | "members" | "trash" | "backups" | "ai" | "audit">("general");
   const isServer = ws.storage.kind === "server";
   const role = meta?.role ?? "owner";
 
@@ -32,14 +33,14 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
     <Modal title={`Workspace · ${ws.name}`} onClose={onClose}>
       {isServer && (
         <nav className="tabs" style={{ margin: "-16px -16px 16px" }}>
-          {(["general", "members", "backups", "ai", "audit"] as const)
+          {(["general", "members", "trash", "backups", "ai", "audit"] as const)
             .filter(
               (t) =>
                 (t !== "audit" || can(role, "members.manage")) && (t !== "backups" || can(role, "backup.manage")) && (t !== "ai" || can(role, "ai.configure")),
             )
             .map((t) => (
               <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-                {{ general: "General", members: `Members (${meta?.members.length ?? 0})`, backups: "Backups", ai: "AI assistant", audit: "Audit log" }[t]}
+                {{ general: "General", members: `Members (${meta?.members.length ?? 0})`, trash: "Trash", backups: "Backups", ai: "AI assistant", audit: "Audit log" }[t]}
               </button>
             ))}
         </nav>
@@ -137,6 +138,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
       )}
 
       {tab === "members" && isServer && <Members wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
+      {tab === "trash" && isServer && <TrashTab wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} role={role} />}
       {tab === "backups" && isServer && <BackupsTab wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
       {tab === "ai" && isServer && <WorkspaceAiTab wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}
       {tab === "audit" && isServer && <Audit wsId={ws.id} api={apiFor(ws.storage.kind === "server" ? ws.storage.url : "")} />}

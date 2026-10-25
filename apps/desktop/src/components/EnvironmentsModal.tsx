@@ -2,6 +2,7 @@ import { useState } from "react";
 import { newEnvironment } from "@getman/core";
 import { draftKey } from "../lib/drafts";
 import { useEffectiveWorkspace, useStore } from "../lib/store";
+import { HistoryModal } from "./HistoryModal";
 import { SaveControls } from "./SaveControls";
 import { Modal } from "./Modal";
 import { VariablesTable } from "./VariablesTable";
@@ -20,6 +21,8 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
   const setGlobals = (value: typeof ws.globals) => editDraft({ kind: "globals", id: "globals", value });
   const keyOf = (id: string) => (id === GLOBALS ? draftKey(ws.id, "globals", "globals") : draftKey(ws.id, "environment", id));
   const [selected, setSelected] = useState<string>(ws.activeEnvironmentId ?? ws.environments[0]?.id ?? GLOBALS);
+  const [historyFor, setHistoryFor] = useState<string>();
+  const historyEnv = ws.environments.find((e) => e.id === historyFor);
   const env = ws.environments.find((e) => e.id === selected);
 
   const create = () => {
@@ -29,6 +32,8 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
   };
 
   return (
+    <>
+    {historyEnv && <HistoryModal target={{ kind: "environment", env: historyEnv }} onClose={() => setHistoryFor(undefined)} />}
     <Modal title="Environments" onClose={onClose} footer={<button className="btn primary" onClick={onClose}>Done</button>}>
       <div className="envs">
         <div className="env-list">
@@ -70,6 +75,11 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
                   aria-label="Environment name"
                   onChange={(e) => updateEnvironment(env.id, (x) => ({ ...x, name: e.target.value }))}
                 />
+                {ws.storage.kind === "server" && (
+                  <button className="btn ghost" onClick={() => setHistoryFor(env.id)}>
+                    History
+                  </button>
+                )}
                 <SaveControls draftKeyValue={keyOf(env.id)} dirty={Boolean(drafts[keyOf(env.id)])} />
                 {ws.activeEnvironmentId !== env.id ? (
                   <button className="btn" onClick={() => setActiveEnvironment(env.id)}>
@@ -98,5 +108,6 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
         </div>
       </div>
     </Modal>
+    </>
   );
 }

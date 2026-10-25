@@ -191,6 +191,49 @@ const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       create index on invites (email) where accepted_at is null;
     `,
   },
+  {
+    id: 4,
+    name: "history_and_trash",
+    sql: `
+      -- Every saved version (see content.ts). No FK to collections: history outlives a delete.
+      create table collection_versions (
+        workspace_id uuid not null references workspaces on delete cascade,
+        collection_id uuid not null,
+        version int not null,
+        data jsonb not null,
+        saved_by uuid references users on delete set null,
+        saved_at timestamptz not null default now(),
+        primary key (workspace_id, collection_id, version)
+      );
+      create table environment_versions (
+        workspace_id uuid not null references workspaces on delete cascade,
+        environment_id uuid not null,
+        version int not null,
+        data jsonb not null,
+        saved_by uuid references users on delete set null,
+        saved_at timestamptz not null default now(),
+        primary key (workspace_id, environment_id, version)
+      );
+      insert into collection_versions (workspace_id, collection_id, version, data, saved_by, saved_at)
+        select workspace_id, id, version, data, updated_by, updated_at from collections;
+      insert into environment_versions (workspace_id, environment_id, version, data, saved_by, saved_at)
+        select workspace_id, id, version, data, updated_by, updated_at from environments;
+
+      create table trash (
+        id uuid primary key default gen_random_uuid(),
+        workspace_id uuid not null references workspaces on delete cascade,
+        kind text not null check (kind in ('collection', 'environment', 'request', 'folder')),
+        item_id text not null,
+        name text not null,
+        data jsonb not null,
+        collection_id uuid,          -- for requests/folders: where it lived
+        parent_id text,
+        deleted_by uuid references users on delete set null,
+        deleted_at timestamptz not null default now()
+      );
+      create index on trash (workspace_id, deleted_at desc);
+    `,
+  },
 ];
 
 export function connect(url: string): Sql {

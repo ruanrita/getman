@@ -25,6 +25,12 @@ export type DraftKind = Draft["kind"];
 /** A draft as passed to editDraft (wsId and base are filled in by the store). */
 export type DraftInput = Draft extends infer D ? (D extends Draft ? Omit<D, "base" | "wsId"> : never) : never;
 
+/**
+ * Base of drafts that came back from a save conflict: never matches, so the
+ * next Save always shows the comparison before replacing the teammate's version.
+ */
+export const CONFLICT_BASE = "conflict";
+
 export const draftKey = (wsId: string, kind: DraftKind, id: string) => `${wsId}|${kind}|${id}`;
 
 const settingsOf = ({ items: _items, ...settings }: Collection): CollectionSettings => settings;

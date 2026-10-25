@@ -36,10 +36,13 @@ Creating, deleting and renaming items from the sidebar, creating or deleting env
 
 ## When a teammate saved the same item
 
-If someone else saves an item after you started editing it, your draft stays on screen. When you save, Getman asks:
+If someone else saves an item after you started editing it, your draft stays on screen. When you save, Getman shows **both versions side by side (as a diff)** and asks:
 
-- **OK** saves your version (it replaces theirs);
-- **Cancel** keeps your draft unsaved so you can check their change first (Discard shows their version).
+- **Save mine (replace theirs)**;
+- **Use theirs (discard mine)**;
+- **Decide later** keeps your draft unsaved.
+
+Saves of *different* requests never conflict, even at the same second: the server merges them. See [history and simultaneous edits](history.md).
 
 If the item was deleted by someone else meanwhile, saving a request brings it back with your version.
 

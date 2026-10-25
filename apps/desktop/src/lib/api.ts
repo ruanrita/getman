@@ -1,4 +1,4 @@
-import type { Collection, Environment, Role, Variable } from "@getman/core";
+import type { Collection, Environment, Item, Role, Variable } from "@getman/core";
 import { isTauri } from "./transport";
 
 /** Error shape of the Getman server: `{ error: { code, message, details } }`. */
@@ -59,6 +59,48 @@ export interface WorkspaceSnapshot {
   globals: { variables: Variable[]; version: number };
   collections: { collection: Collection; version: number }[];
   environments: { environment: Environment; version: number }[];
+}
+
+export interface MergeConflict {
+  kind: "request" | "folder" | "collection" | "environment" | "variable";
+  id: string;
+  name: string;
+  reason: "both_changed" | "deleted_by_them" | "deleted_by_us";
+}
+
+/** Response of a save: the stored copy when others' changes were merged in, and conflicting items. */
+export interface SaveResponse<T> {
+  version: number;
+  merged?: T;
+  conflicts: MergeConflict[];
+}
+
+export interface CollectionVersion {
+  version: number;
+  savedAt: string;
+  savedBy: string | null;
+  name: string;
+  changes: { id: string; name: string; change: "added" | "changed" | "deleted" }[];
+  settingsChanged: boolean;
+}
+
+export interface ItemHistoryEntry {
+  version: number;
+  savedAt: string;
+  savedBy: string | null;
+  change: "created" | "changed" | "deleted";
+  item: Item | null;
+}
+
+export interface TrashEntry {
+  id: string;
+  kind: "collection" | "environment" | "request" | "folder";
+  name: string;
+  collectionId: string | null;
+  collectionName: string | null;
+  deletedAt: string;
+  deletedBy: string | null;
+  expiresAt: string;
 }
 
 export type BackupSchedule = "manual" | "hourly" | "daily" | "weekly";
@@ -186,13 +228,25 @@ export class ServerApi {
 
   /* content */
   putCollection = (id: string, collection: Collection, baseVersion: number) =>
-    this.request<{ version: number }>("PUT", `/workspaces/${id}/collections/${collection.id}`, { collection, baseVersion });
+    this.request<SaveResponse<Collection>>("PUT", `/workspaces/${id}/collections/${collection.id}`, { collection, baseVersion });
   deleteCollection = (id: string, cid: string) => this.request("DELETE", `/workspaces/${id}/collections/${cid}`);
   putEnvironment = (id: string, environment: Environment, baseVersion: number) =>
-    this.request<{ version: number }>("PUT", `/workspaces/${id}/environments/${environment.id}`, { environment, baseVersion });
+    this.request<SaveResponse<Environment>>("PUT", `/workspaces/${id}/environments/${environment.id}`, { environment, baseVersion });
   deleteEnvironment = (id: string, eid: string) => this.request("DELETE", `/workspaces/${id}/environments/${eid}`);
   putGlobals = (id: string, variables: Variable[], baseVersion: number) =>
     this.request<{ version: number }>("PUT", `/workspaces/${id}/globals`, { variables, baseVersion });
+
+  /* history and trash */
+  collectionVersions = (id: string, cid: string) => this.request<{ versions: CollectionVersion[] }>("GET", `/workspaces/${id}/collections/${cid}/versions`);
+  restoreCollectionVersion = (id: string, cid: string, version: number) =>
+    this.request<SaveResponse<Collection>>("POST", `/workspaces/${id}/collections/${cid}/versions/${version}/restore`);
+  itemHistory = (id: string, cid: string, itemId: string) =>
+    this.request<{ history: ItemHistoryEntry[] }>("GET", `/workspaces/${id}/collections/${cid}/items/${itemId}/history`);
+  environmentVersions = (id: string, eid: string) =>
+    this.request<{ versions: { version: number; savedAt: string; savedBy: string | null; data: Environment }[] }>("GET", `/workspaces/${id}/environments/${eid}/versions`);
+  trash = (id: string) => this.request<{ items: TrashEntry[]; retentionDays: number }>("GET", `/workspaces/${id}/trash`);
+  restoreTrash = (id: string, tid: string) => this.request("POST", `/workspaces/${id}/trash/${tid}/restore`);
+  purgeTrash = (id: string, tid: string) => this.request("DELETE", `/workspaces/${id}/trash/${tid}`);
 
   /* backups */
   backups = (id: string) => this.request<{ targets: BackupTarget[]; runs: BackupRun[]; localBackupsEnabled: boolean }>("GET", `/workspaces/${id}/backup-targets`);

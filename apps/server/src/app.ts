@@ -14,6 +14,7 @@ import { emailRoutes } from "./routes/email";
 import { emailService } from "./emailService";
 import { createMailer, type Mailer } from "./mail";
 import { backupRoutes } from "./routes/backups";
+import { historyRoutes } from "./routes/history";
 import { workspaceRoutes } from "./routes/workspaces";
 
 export const API_VERSION = 1;
@@ -63,7 +64,8 @@ export async function buildApp(sql: Sql, config: Config, opts: { logger?: boolea
 
   authRoutes(app, sql, config, hub, mail);
   emailRoutes(app, sql, config, hub, mail);
-  const { access } = workspaceRoutes(app, sql, config, hub, mail);
+  const { access, content } = workspaceRoutes(app, sql, config, hub, mail);
+  historyRoutes(app, sql, config, access, content);
   backupRoutes(app, sql, config, access);
   aiRoutes(app, sql, config, access);
 

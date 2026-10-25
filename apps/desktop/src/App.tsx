@@ -3,6 +3,7 @@ import { findItemPath } from "@getman/core";
 import { AccountModal } from "./components/AccountModal";
 import { AiPanel } from "./components/AiPanel";
 import { CollectionEditor } from "./components/CollectionEditor";
+import { ConflictDialog } from "./components/ConflictDialog";
 import { GitModal } from "./components/GitModal";
 import { NewWorkspaceModal } from "./components/NewWorkspaceModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
@@ -90,6 +91,7 @@ export function App() {
       {modal === "git" && <GitModal onClose={() => setModal(null)} />}
       {modal === "workspace" && <WorkspaceModal onClose={() => setModal(null)} />}
       {modal === "newWorkspace" && <NewWorkspaceModal onClose={() => setModal(null)} onConnect={() => setModal("account")} />}
+      <ConflictDialog />
       {toastMessage && <div className="toast" role="status">{toastMessage}</div>}
     </div>
   );

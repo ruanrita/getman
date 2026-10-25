@@ -4,6 +4,7 @@ import { exportCurl } from "@getman/importers";
 import { previewRequest, runRequest } from "../lib/runRequest";
 import { draftKey } from "../lib/drafts";
 import { useStore } from "../lib/store";
+import { HistoryModal } from "./HistoryModal";
 import { SaveControls } from "./SaveControls";
 import { toast } from "../lib/ui";
 import { AuthEditor } from "./AuthEditor";
@@ -20,6 +21,8 @@ interface Props {
 
 export function RequestEditor({ collectionId, request }: Props) {
   const [tab, setTab] = useState<Tab>("params");
+  const [showHistory, setShowHistory] = useState(false);
+  const isServer = useStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.storage.kind === "server");
   const running = useStore((s) => s.running[request.id]);
   const key = draftKey(useStore.getState().activeWorkspaceId, "request", request.id);
   const dirty = useStore((s) => Boolean(s.drafts[key]));
@@ -71,6 +74,11 @@ export function RequestEditor({ collectionId, request }: Props) {
       <div className="editor-head">
         <div className="row">
           <input className="input bare" style={{ fontSize: 15, fontWeight: 600, flex: 1 }} value={request.name} aria-label="Request name" onChange={(e) => update({ name: e.target.value })} />
+          {isServer && (
+            <button className="btn ghost" title="Saved versions of this request" onClick={() => setShowHistory(true)}>
+              History
+            </button>
+          )}
           <SaveControls draftKeyValue={key} dirty={dirty} />
         </div>
         <div className="urlbar">
@@ -101,6 +109,7 @@ export function RequestEditor({ collectionId, request }: Props) {
         </div>
       </div>
 
+      {showHistory && <HistoryModal target={{ kind: "request", collectionId, item: request }} onClose={() => setShowHistory(false)} />}
       <div className="split">
         <section className="pane">
           <nav className="tabs" role="tablist">
