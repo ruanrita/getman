@@ -3,9 +3,10 @@ import { can, canChangeRole, type Role } from "@getman/core";
 import { ApiError, type AddMemberResult, type PendingInvite, type ServerApi } from "../lib/api";
 import { useActiveWorkspace, useStore } from "../lib/store";
 import { apiFor, loadServerWorkspace, publishWorkspace } from "../lib/sync";
-import { toast } from "../lib/ui";
+import { toast, ask } from "../lib/ui";
 import { gitAvailable, moveToGitFolder, pickFolder } from "../lib/gitSync";
 import { BackupsTab } from "./BackupsTab";
+import { LocalBackupSection } from "./LocalBackupSection";
 import { TrashTab } from "./TrashTab";
 import { Modal } from "./Modal";
 import { WorkspaceAiTab } from "./WorkspaceAiTab";
@@ -70,7 +71,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
               <button
                 className="btn danger"
                 style={{ justifySelf: "start" }}
-                onClick={() => confirm(`Remove "${ws.name}" from Getman? The files in the folder are not deleted; you can open it again later.`) && (removeWorkspace(ws.id), onClose())}
+                onClick={async () => (await ask(`Remove "${ws.name}" from Getman? The files in the folder are not deleted; you can open it again later.`)) && (removeWorkspace(ws.id), onClose())}
               >
                 Remove from Getman
               </button>
@@ -78,6 +79,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
           ) : (
             <>
               <div className="hint">This workspace is stored only on this device.</div>
+              <LocalBackupSection />
               {gitAvailable() && (
                 <div className="section">
                   <h4>Keep it in a Git repository</h4>
@@ -128,7 +130,7 @@ export function WorkspaceModal({ onClose }: { onClose(): void }) {
               <button
                 className="btn danger"
                 style={{ justifySelf: "start" }}
-                onClick={() => confirm(`Delete "${ws.name}" from this device? This cannot be undone.`) && (removeWorkspace(ws.id), onClose())}
+                onClick={async () => (await ask(`Delete "${ws.name}" from this device? This cannot be undone.`)) && (removeWorkspace(ws.id), onClose())}
               >
                 Delete workspace
               </button>
@@ -178,8 +180,8 @@ function ServerGeneral({ wsId, api, onClose }: { wsId: string; api: ServerApi; o
         {role !== "owner" && me && (
           <button
             className="btn danger"
-            onClick={() =>
-              confirm("Leave this workspace? You will lose access until someone adds you again.") &&
+            onClick={async () =>
+              (await ask("Leave this workspace? You will lose access until someone adds you again.")) &&
               api.removeMember(wsId, me.id).then(
                 () => (useStore.getState().removeWorkspace(wsId), onClose()),
                 (e) => toast(errorText(e)),
@@ -298,7 +300,7 @@ function Members({ wsId, api }: { wsId: string; api: ServerApi }) {
                     </button>{" "}
                     <button
                       className="btn danger"
-                      onClick={() => confirm(`Cancel the invitation for ${inv.email}?`) && api.revokeInvite(wsId, inv.id).then(() => void loadInvites(), (e) => toast(errorText(e)))}
+                      onClick={async () => (await ask(`Cancel the invitation for ${inv.email}?`)) && api.revokeInvite(wsId, inv.id).then(() => void loadInvites(), (e) => toast(errorText(e)))}
                     >
                       Cancel
                     </button>
@@ -346,13 +348,13 @@ function Members({ wsId, api }: { wsId: string; api: ServerApi }) {
                   {meta.role === "owner" && m.role !== "owner" && (
                     <button
                       className="btn"
-                      onClick={() => confirm(`Make ${m.email} the owner? You will become an admin.`) && act(api.transfer(wsId, m.userId), "Ownership transferred")}
+                      onClick={async () => (await ask(`Make ${m.email} the owner? You will become an admin.`)) && act(api.transfer(wsId, m.userId), "Ownership transferred")}
                     >
                       Make owner
                     </button>
                   )}{" "}
                   {manage && m.role !== "owner" && m.userId !== me?.id && !(meta.role === "admin" && m.role === "admin") && (
-                    <button className="btn danger" onClick={() => confirm(`Remove ${m.email}?`) && act(api.removeMember(wsId, m.userId), "Member removed")}>
+                    <button className="btn danger" onClick={async () => (await ask(`Remove ${m.email}?`)) && act(api.removeMember(wsId, m.userId), "Member removed")}>
                       Remove
                     </button>
                   )}

@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { localBackupsAvailable } from "../lib/localBackup";
 import { useStore } from "../lib/store";
+import { RestoreLocalBackup } from "./LocalBackupSection";
 import { cloneRepository, gitAvailable, openGitFolder, pickFolder } from "../lib/gitSync";
 import { apiFor, createServerWorkspace, loadServerWorkspace } from "../lib/sync";
 import { toast } from "../lib/ui";
@@ -93,6 +95,7 @@ export function NewWorkspaceModal({ onClose, onConnect }: { onClose(): void; onC
             </div>
           )}
           {where.startsWith("http") && <RestoreFromFile url={where} onDone={onClose} />}
+          {where === "local" && localBackupsAvailable() && <RestoreLocalBackup onDone={onClose} />}
           {servers.length === 0 && (
             <p className="muted">
               To share with a team,{" "}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ask } from "../lib/ui";
 import { newEnvironment } from "@getman/core";
 import { draftKey } from "../lib/drafts";
 import { useEffectiveWorkspace, useStore } from "../lib/store";
@@ -90,8 +91,8 @@ export function EnvironmentsModal({ onClose }: { onClose(): void }) {
                 )}
                 <button
                   className="btn danger"
-                  onClick={() => {
-                    if (!confirm(`Delete environment "${env.name}"?`)) return;
+                  onClick={async () => {
+                    if (!(await ask(`Delete environment "${env.name}"?`))) return;
                     removeEnvironment(env.id);
                     setSelected(GLOBALS);
                   }}

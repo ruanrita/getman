@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_ANTHROPIC_MODEL, PRESETS } from "../lib/aiConfig";
 import { ApiError, type ServerApi } from "../lib/api";
-import { toast } from "../lib/ui";
+import { toast, ask } from "../lib/ui";
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
@@ -89,7 +89,7 @@ export function WorkspaceAiTab({ wsId, api }: { wsId: string; api: ServerApi }) 
           Save
         </button>
         {state?.enabled && (
-          <button className="btn danger" onClick={() => confirm("Turn off workspace AI and delete the stored key?") && save({ provider: null, apiKey: null }, "Workspace AI turned off")}>
+          <button className="btn danger" onClick={async () => (await ask("Turn off workspace AI and delete the stored key?")) && save({ provider: null, apiKey: null }, "Workspace AI turned off")}>
             Turn off
           </button>
         )}

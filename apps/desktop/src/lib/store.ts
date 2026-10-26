@@ -75,6 +75,18 @@ interface State {
   aiOpen: boolean;
   /** Unsaved edits, keyed by draftKey(). Kept on this device; see drafts.ts. */
   drafts: Record<string, Draft>;
+  /** Automatic backups of local workspaces (localBackup.ts). */
+  localBackup: LocalBackupSettings;
+}
+
+export interface LocalBackupSettings {
+  enabled: boolean;
+  /** Undefined = Documents/Getman/backups. */
+  dir?: string;
+  intervalMin: number;
+  keep: number;
+  /** Last backup per workspace: content hash and time. */
+  last: Record<string, { hash: string; at: number }>;
 }
 
 export type SaveResult = "saved" | "conflict" | "denied" | "missing" | "none";
@@ -118,6 +130,7 @@ interface Actions {
   saveDraft(key: string, force?: boolean): SaveResult;
   /** Saves every draft of the active workspace; returns the keys left unsaved because of conflicts. */
   saveAll(force?: boolean): string[];
+  setLocalBackup(patch: Partial<LocalBackupSettings>): void;
 }
 
 /**
@@ -187,6 +200,7 @@ export const useStore = create<State & Actions>()(
         ai: DEFAULT_AI_SETTINGS,
         aiOpen: false,
         drafts: {},
+        localBackup: { enabled: true, intervalMin: 10, keep: 30, last: {} },
 
         setTheme: (theme) => setState({ theme }),
         select: (selection) => setState({ selection }),
@@ -377,6 +391,7 @@ export const useStore = create<State & Actions>()(
           return conflicts;
         },
 
+        setLocalBackup: (patch) => setState((s) => ({ localBackup: { ...s.localBackup, ...patch } })),
         setAi: (patch) => setState((s) => ({ ai: { ...s.ai, ...patch } })),
         toggleAi: (open) => setState((s) => ({ aiOpen: open ?? !s.aiOpen })),
       };
@@ -398,6 +413,7 @@ export const useStore = create<State & Actions>()(
         aiOpen: s.aiOpen,
         // Unsaved edits survive restarts: closing the app never loses work.
         drafts: s.drafts,
+        localBackup: s.localBackup,
       }),
       onRehydrateStorage: () => () => useStore.setState({ hydrated: true }),
     },

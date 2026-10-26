@@ -62,7 +62,7 @@ collections:
 environments: [...]
 ```
 
-`getman` is the format version. Newer files are rejected with a message asking to update Getman.
+`getman` is the format version. Newer files are rejected with a message asking to update Getman. Whole-workspace files (automatic backups) also carry `workspace: { name }` and `globals`; importing one adds its collections and environments.
 
 ## Implementation
 

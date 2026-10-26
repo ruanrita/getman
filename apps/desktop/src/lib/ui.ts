@@ -35,3 +35,12 @@ export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/**
+ * Yes/no question. Always await it: in the desktop app the dialog plugin
+ * replaces window.confirm with an async version, so `confirm(...) && act()`
+ * would act without waiting for the answer.
+ */
+export async function ask(message: string): Promise<boolean> {
+  return Boolean(await (window.confirm(message) as unknown as boolean | Promise<boolean>));
+}

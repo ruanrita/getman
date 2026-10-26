@@ -54,7 +54,7 @@ Keep this page current: when a limitation is fixed, delete its entry in the same
 - Renaming an item renames its file, so Git shows a delete + add.
 
 ## Backups
-- Only server workspaces have built-in backups; local workspaces use **Export**.
+- Local workspaces are backed up automatically to a folder by the desktop app ([local backups](features/local-backups.md)), without secret or local values; the browser dev build has no automatic local backups.
 - Restoring always creates a new workspace; there is no in-place restore.
 - Backups run inside the single server instance; if the server is down when one is due, it runs at the next check after it starts.
 

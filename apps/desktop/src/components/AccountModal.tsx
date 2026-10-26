@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { ApiError, normalizeServerUrl, ServerApi } from "../lib/api";
 import { useStore, type ServerAccount } from "../lib/store";
 import { apiFor, signedIn, signOut, syncAccount } from "../lib/sync";
-import { toast } from "../lib/ui";
+import { toast, ask } from "../lib/ui";
 import { Modal } from "./Modal";
 
 /** Servers this device knows, sign-in, and account security for each. */
@@ -341,7 +341,7 @@ function AccountPanel({ account }: { account: ServerAccount }) {
         <button
           className="btn danger"
           title="Sign out and forget this server"
-          onClick={() => confirm(`Forget ${account.url}? Its workspaces are removed from this device.`) && void signOut(account.url).then(() => removeServer(account.url))}
+          onClick={async () => (await ask(`Forget ${account.url}? Its workspaces are removed from this device.`)) && void signOut(account.url).then(() => removeServer(account.url))}
         >
           Forget
         </button>

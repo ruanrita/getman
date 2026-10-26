@@ -38,6 +38,7 @@ An open source API client that teams can **own**: run it locally, on their own s
 | 2b | Explicit save: edits are local drafts until Ctrl+S / Save all; drafts survive restarts | ✅ implemented | [saving](features/saving.md) |
 | 2c | Merge per request on save; compare-and-choose on conflicts | ✅ implemented (server) | [history](features/history.md) |
 | 2d | Version history (requests, collections, environments) and 30-day trash | ✅ implemented (server) | [history](features/history.md) |
+| 2e | Automatic backups of local workspaces to a folder, restore as a copy | ✅ implemented (desktop) | [local backups](features/local-backups.md) |
 | 3 | Environments, globals, collection variables, shared vs local values | ✅ implemented | [variables](features/variables.md) |
 | 4 | Secret variables (masked, never synced/exported) | ✅ implemented | [variables](features/variables.md) |
 | 5 | Pre-request and test scripts, Postman `pm.*` compatible, isolated | ✅ implemented | [scripts](features/scripts.md) |

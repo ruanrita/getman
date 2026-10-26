@@ -1,4 +1,5 @@
 import { saveDraft } from "../lib/save";
+import { ask } from "../lib/ui";
 import { useStore } from "../lib/store";
 
 /** "● Unsaved · Discard · Save" for the item being edited. */
@@ -9,7 +10,7 @@ export function SaveControls({ draftKeyValue, dirty }: { draftKeyValue: string; 
       <span className="unsaved-mark" title="Only on this device until you save">● Unsaved</span>
       <button
         className="btn ghost"
-        onClick={() => confirm("Discard your unsaved changes to this item?") && useStore.getState().discardDraft(draftKeyValue)}
+        onClick={async () => (await ask("Discard your unsaved changes to this item?")) && useStore.getState().discardDraft(draftKeyValue)}
       >
         Discard
       </button>

@@ -185,3 +185,14 @@ describe("importAny", () => {
     expect(() => importAny('{"hello":1}')).toThrow(/Unsupported format/);
   });
 });
+
+describe("getman workspace files", () => {
+  it("round-trips workspace name and globals, without secrets", () => {
+    const c = importPostmanCollection(postman);
+    const text = exportGetman({ workspaceName: "Team", globals: [{ id: "g", key: "base", value: "x", enabled: true, secret: false }, { id: "s", key: "pw", value: "hidden", enabled: true, secret: true }], collections: [c] });
+    expect(text).not.toContain("hidden");
+    const r = importAny(text);
+    expect(r.workspaceName).toBe("Team");
+    expect(r.globals?.map((v) => `${v.key}=${v.value}`)).toEqual(["base=x", "pw="]);
+  });
+});

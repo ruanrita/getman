@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { can, type Role } from "@getman/core";
 import { ApiError, type ServerApi, type TrashEntry } from "../lib/api";
 import { loadServerWorkspace } from "../lib/sync";
-import { toast } from "../lib/ui";
+import { toast, ask } from "../lib/ui";
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const KIND: Record<TrashEntry["kind"], string> = { collection: "Collection", environment: "Environment", request: "Request", folder: "Folder" };
@@ -53,7 +53,7 @@ export function TrashTab({ wsId, api, role }: { wsId: string; api: ServerApi; ro
                   {can(role, "members.manage") && (
                     <button
                       className="btn danger"
-                      onClick={() => confirm(`Delete "${t.name}" forever? This cannot be undone.`) && api.purgeTrash(wsId, t.id).then(load, (e) => toast(errorText(e)))}
+                      onClick={async () => (await ask(`Delete "${t.name}" forever? This cannot be undone.`)) && api.purgeTrash(wsId, t.id).then(load, (e) => toast(errorText(e)))}
                     >
                       Delete forever
                     </button>

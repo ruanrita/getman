@@ -7,7 +7,7 @@ tags: [backup, restore, s3, minio, r2, backblaze, postgres, disaster-recovery, e
 
 # Backup and restore
 
-Available for workspaces on a [Getman server](../guides/self-hosting.md), to owners and admins: **⚙ workspace settings → Backups**. For local workspaces, use **Export → Getman YAML**.
+Available for workspaces on a [Getman server](../guides/self-hosting.md), to owners and admins: **⚙ workspace settings → Backups**. Local workspaces are backed up automatically by the desktop app: see [local backups](local-backups.md).
 
 ## What a backup contains
 

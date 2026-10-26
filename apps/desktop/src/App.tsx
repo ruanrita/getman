@@ -17,6 +17,7 @@ import { draftKey, draftsOf } from "./lib/drafts";
 import { saveAll, saveDraft } from "./lib/save";
 import { useEffectiveWorkspace, useStore } from "./lib/store";
 import { startGitSync } from "./lib/gitSync";
+import { startLocalBackups } from "./lib/localBackup";
 import { startSync } from "./lib/sync";
 import { useToast } from "./lib/ui";
 
@@ -38,6 +39,7 @@ export function App() {
     if (!hydrated) return;
     startSync();
     startGitSync();
+    startLocalBackups();
   }, [hydrated]);
 
   // Ctrl+S saves what you are editing; Ctrl+Shift+S saves everything in this workspace.

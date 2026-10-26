@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, type CollectionVersion } from "../lib/api";
 import { useStore } from "../lib/store";
 import { apiFor, loadServerWorkspace } from "../lib/sync";
-import { toast } from "../lib/ui";
+import { toast, ask } from "../lib/ui";
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
@@ -32,8 +32,8 @@ export function CollectionHistory({ wsId, url, collectionId }: { wsId: string; u
             {i > 0 && canWrite && (
               <button
                 className="btn"
-                onClick={() =>
-                  confirm(`Restore the whole collection to version ${v.version}? Changes made after it will be undone (they stay in the history).`) &&
+                onClick={async () =>
+                  (await ask(`Restore the whole collection to version ${v.version}? Changes made after it will be undone (they stay in the history).`)) &&
                   api.restoreCollectionVersion(wsId, collectionId, v.version).then(
                     async () => {
                       await loadServerWorkspace(url, wsId);

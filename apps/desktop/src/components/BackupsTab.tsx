@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, type BackupRun, type BackupSchedule, type BackupTarget, type NewBackupTarget, type ServerApi } from "../lib/api";
 import { loadServerWorkspace } from "../lib/sync";
 import { useStore } from "../lib/store";
-import { formatBytes, toast } from "../lib/ui";
+import { formatBytes, toast, ask } from "../lib/ui";
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
@@ -71,7 +71,7 @@ export function BackupsTab({ wsId, api }: { wsId: string; api: ServerApi }) {
               </button>
               <button
                 className="btn danger"
-                onClick={() => confirm(`Remove "${t.name}"? Files already written stay where they are.`) && act(t.id, () => api.deleteBackupTarget(wsId, t.id), "Target removed")}
+                onClick={async () => (await ask(`Remove "${t.name}"? Files already written stay where they are.`)) && act(t.id, () => api.deleteBackupTarget(wsId, t.id), "Target removed")}
               >
                 Remove
               </button>
@@ -94,8 +94,8 @@ export function BackupsTab({ wsId, api }: { wsId: string; api: ServerApi }) {
                           </button>{" "}
                           <button
                             className="btn"
-                            onClick={() => {
-                              const restoreMembers = confirm("Restore into a NEW workspace (the current one is not changed).\n\nAlso add the members from the backup? OK = yes, Cancel = only me.");
+                            onClick={async () => {
+                              const restoreMembers = (await ask("Restore into a NEW workspace (the current one is not changed).\n\nAlso add the members from the backup? OK = yes, Cancel = only me."));
                               void act(
                                 r.id,
                                 async () => {

@@ -26,6 +26,7 @@ When answering users, prefer `docs/limitations.md` for "can Getman do X?" questi
 - [Git workspaces](features/git.md): store a workspace as YAML in a Git repo, commit/push/pull from Getman, conflicts.
 - [Accounts, invitations and password reset](features/accounts.md): sign up, verify email, invite people without an account, forgot password, servers without SMTP.
 - [Roles and permissions](features/roles.md): owner/admin/editor/viewer matrix.
+- [Automatic backups of local workspaces](features/local-backups.md): copies to Documents/Getman/backups, retention, restore as a copy.
 - [Backup and restore](features/backup.md): encrypted, scheduled backups to S3 / server folder / PostgreSQL; restore.
 - [AI assistant](features/ai-assistant.md): chat that answers from these docs with your own key (Anthropic, OpenAI, Gemini, Ollama…) or a workspace key.
 

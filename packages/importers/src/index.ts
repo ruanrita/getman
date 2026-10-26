@@ -1,5 +1,5 @@
 import YAML from "yaml";
-import { newCollection, type Collection, type Environment } from "@getman/core";
+import { newCollection, type Collection, type Environment, type Variable } from "@getman/core";
 import { importCurl, looksLikeCurl } from "./curl";
 import { importGetman, isGetmanFile } from "./getman";
 import { importOpenApi, isOpenApi } from "./openapi";
@@ -17,6 +17,9 @@ export interface ImportResult {
   format: ImportFormat;
   collections: Collection[];
   environments: Environment[];
+  /** Only from Getman whole-workspace files (backups). */
+  globals?: Variable[];
+  workspaceName?: string;
 }
 
 function parse(text: string): unknown {

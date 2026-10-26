@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ask } from "../lib/ui";
 import { newCollection, newFolder, newRequest, type Collection, type Item } from "@getman/core";
 import { draftKey } from "../lib/drafts";
 import { useEffectiveWorkspace, useStore } from "../lib/store";
@@ -75,7 +76,7 @@ function CollectionNode({ collection, filter }: { collection: Collection; filter
             className="btn ghost icon danger"
             title="Delete collection"
             aria-label="Delete collection"
-            onClick={() => confirm(`Delete collection "${collection.name}"?`) && removeCollection(collection.id)}
+            onClick={async () => (await ask(`Delete collection "${collection.name}"?`)) && removeCollection(collection.id)}
           >
             🗑
           </button>
@@ -98,7 +99,7 @@ function ItemNode({ item, collectionId, depth, filter }: { item: Item; collectio
   const pad = { paddingLeft: depth * 14 };
 
   const renameItem = () => rename(item.name, (name) => updateItem(collectionId, item.id, (i) => ({ ...i, name })));
-  const del = () => confirm(`Delete "${item.name}"?`) && removeItem(collectionId, item.id);
+  const del = async () => (await ask(`Delete "${item.name}"?`)) && removeItem(collectionId, item.id);
 
   if (item.kind === "request") {
     return (
